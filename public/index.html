@@ -681,6 +681,11 @@
         this.socket.on('signal', ({ from, data }) => {
           this.handleSignal(from, data);
         });
+
+        // Poll for device list every 5 seconds
+        setInterval(() => {
+          this.socket.emit('getDevices');
+        }, 5000);
       }
 
       generateDeviceId() {
