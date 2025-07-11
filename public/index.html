@@ -687,6 +687,9 @@
         this.deviceId = Math.random().toString(36).substring(2, 8).toUpperCase();
         this.elements.deviceId.textContent = this.deviceId;
         this.socket.emit('register', this.deviceId);
+
+        // Request device list after registering
+        this.socket.emit('getDevices');
       }
 
       handleFileSelect(e) {
