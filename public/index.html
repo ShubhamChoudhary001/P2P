@@ -579,7 +579,7 @@
   <script>
     class P2PFileSharing {
       constructor() {
-        this.socket = io();
+        this.socket = io('https://shareshort.onrender.com');
         this.pc = null;
         this.dc = null;
         this.peerId = null;
