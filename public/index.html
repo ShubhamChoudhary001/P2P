@@ -990,6 +990,7 @@
       }
 
       updateDeviceList(devices) {
+        console.log('Received device list:', devices); // <-- Add this line
         const container = this.elements.connectedDevices;
         if (devices.length === 0) {
           container.innerHTML = '<p>No devices available</p>';

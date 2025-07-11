@@ -5,7 +5,12 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "https://sharep2p.netlify.app",
+    methods: ["GET", "POST"]
+  }
+});
 
 // Store connected devices and their connections
 const devices = new Map(); // deviceId -> socket
