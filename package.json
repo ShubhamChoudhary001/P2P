@@ -1,0 +1,16 @@
+{
+  "name": "p2p-file-sharing",
+  "version": "1.0.0",
+  "description": "LAN-only p2p file sharing using WebRTC and socket",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "SHUBHAM",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
