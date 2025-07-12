@@ -5,16 +5,54 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+
+// Enhanced CORS configuration
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "https://sharep2p.netlify.app"],
-    methods: ["GET", "POST"]
+    origin: ["http://localhost:3000", "https://sharep2p.netlify.app", "https://*.netlify.app"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true
+});
+
+// Additional Express CORS middleware for extra security
+app.use((req, res, next) => {
+  const allowedOrigins = ["http://localhost:3000", "https://sharep2p.netlify.app", "https://*.netlify.app"];
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes(origin) || origin?.includes('netlify.app')) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
   }
 });
 
 // Store connected devices and their connections
 const devices = new Map(); // deviceId -> socket
 const deviceConnections = new Map(); // deviceId -> connectedDeviceId
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    origins: ["http://localhost:3000", "https://sharep2p.netlify.app"]
+  });
+});
 
 // Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));
