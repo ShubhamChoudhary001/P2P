@@ -123,10 +123,13 @@ class WebRTCManager {
    */
   async createOffer() {
     try {
-      // Always ensure we have a fresh connection for offers
-      if (!this.pc || this.pc.signalingState !== 'stable') {
-        console.log('🔄 Ensuring fresh connection for offer...');
-        await this.ensureFreshConnection();
+      // Check if we need a fresh connection
+      if (!this.pc) {
+        console.log('🔄 No peer connection, creating new one...');
+        this.initializePeerConnection(this.isSender);
+      } else if (this.pc.signalingState !== 'stable') {
+        console.log('🔄 Signaling state not stable, resetting connection...');
+        await this.resetConnection();
       }
       
       const offer = await this.pc.createOffer();
@@ -136,19 +139,19 @@ class WebRTCManager {
     } catch (error) {
       console.error('Error creating offer:', error);
       
-      // If any error occurs, completely recreate the connection
+      // Only recreate if it's a critical state error
       if (error.message.includes('SDP does not match') || error.message.includes('InvalidModificationError')) {
-        console.log('🔄 Critical error detected, completely recreating connection...');
-        await this.completeRecreation();
+        console.log('🔄 Critical error detected, recreating connection...');
+        await this.forceReset();
         
         // Retry once with fresh connection
         try {
           const offer = await this.pc.createOffer();
           await this.pc.setLocalDescription(offer);
-          console.log('Created offer after complete recreation');
+          console.log('Created offer after reset');
           return offer;
         } catch (retryError) {
-          console.error('Error creating offer after complete recreation:', retryError);
+          console.error('Error creating offer after reset:', retryError);
           throw retryError;
         }
       }
@@ -164,10 +167,13 @@ class WebRTCManager {
    */
   async handleOffer(offer) {
     try {
-      // Always ensure we have a fresh connection for offers
-      if (!this.pc || this.pc.signalingState !== 'stable') {
-        console.log('🔄 Ensuring fresh connection for offer handling...');
-        await this.ensureFreshConnection();
+      // Check if we need a fresh connection
+      if (!this.pc) {
+        console.log('🔄 No peer connection, creating new one...');
+        this.initializePeerConnection(this.isSender);
+      } else if (this.pc.signalingState !== 'stable') {
+        console.log('🔄 Signaling state not stable, resetting connection...');
+        await this.resetConnection();
       }
       
       await this.pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -178,20 +184,20 @@ class WebRTCManager {
     } catch (error) {
       console.error('Error handling offer:', error);
       
-      // If any error occurs, completely recreate the connection
+      // Only recreate if it's a critical state error
       if (error.message.includes('SDP does not match') || error.message.includes('InvalidModificationError')) {
-        console.log('🔄 Critical error detected, completely recreating connection...');
-        await this.completeRecreation();
+        console.log('🔄 Critical error detected, recreating connection...');
+        await this.forceReset();
         
         // Retry once with fresh connection
         try {
           await this.pc.setRemoteDescription(new RTCSessionDescription(offer));
           const answer = await this.pc.createAnswer();
           await this.pc.setLocalDescription(answer);
-          console.log('Created answer after complete recreation');
+          console.log('Created answer after reset');
           return answer;
         } catch (retryError) {
-          console.error('Error handling offer after complete recreation:', retryError);
+          console.error('Error handling offer after reset:', retryError);
           throw retryError;
         }
       }

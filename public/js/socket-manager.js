@@ -34,7 +34,7 @@ class SocketManager {
    */
   setupEventHandlers() {
     this.socket.on('connect', () => {
-      console.log('Connected to signaling server');
+      console.log('✅ Connected to signaling server');
       this.isConnected = true;
       if (this.onConnect) {
         this.onConnect();
@@ -104,6 +104,11 @@ class SocketManager {
     this.deviceId = deviceId;
     this.socket.emit('register', deviceId);
     console.log('✅ Device registered with server:', deviceId);
+    
+    // Request device list immediately after registration
+    setTimeout(() => {
+      this.getDevices();
+    }, 500);
   }
 
   /**
@@ -111,9 +116,11 @@ class SocketManager {
    */
   getDevices() {
     if (!this.isConnected) {
+      console.error('Cannot get devices: Socket not connected');
       throw new Error('Socket not connected');
     }
     
+    console.log('🔍 Requesting device list...');
     this.socket.emit('getDevices');
   }
 
