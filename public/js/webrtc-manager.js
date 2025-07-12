@@ -26,6 +26,9 @@ class WebRTCManager {
   initializePeerConnection(isSender) {
     console.log(`Initializing WebRTC as ${isSender ? 'sender' : 'receiver'}`);
     
+    // Store the sender state
+    this.isSender = isSender;
+    
     this.pc = new RTCPeerConnection({ iceServers: this.config.ICE_SERVERS });
     
     if (isSender) {
@@ -73,6 +76,11 @@ class WebRTCManager {
    * @param {boolean} isSender - Whether this peer is the sender
    */
   setupDataChannel(isSender) {
+    if (!this.dc) {
+      console.error('Cannot setup data channel: data channel is null');
+      return;
+    }
+    
     this.dc.binaryType = 'arraybuffer';
     
     this.dc.onopen = () => {
@@ -237,7 +245,7 @@ class WebRTCManager {
   async completeRecreation() {
     console.log('🔄 Complete connection recreation...');
     
-    // Store callbacks
+    // Store callbacks and sender state
     const callbacks = {
       onIceCandidate: this.onIceCandidate,
       onConnectionStateChange: this.onConnectionStateChange,
@@ -245,6 +253,7 @@ class WebRTCManager {
       onDataChannelOpen: this.onDataChannelOpen,
       onDataChannelMessage: this.onDataChannelMessage
     };
+    const isSender = this.isSender;
     
     // Completely close and nullify everything
     if (this.dc) {
@@ -264,8 +273,12 @@ class WebRTCManager {
     await new Promise(resolve => setTimeout(resolve, 300));
     
     // Create completely new peer connection
-    this.initializePeerConnection(this.isSender);
-    this.setupDataChannel(this.isSender);
+    this.initializePeerConnection(isSender);
+    
+    // Only setup data channel if it was created (for sender)
+    if (this.dc) {
+      this.setupDataChannel(isSender);
+    }
     
     // Restore callbacks
     this.onIceCandidate = callbacks.onIceCandidate;
@@ -283,7 +296,7 @@ class WebRTCManager {
   async forceReset() {
     console.log('🔄 Force resetting connection...');
     
-    // Store callbacks
+    // Store callbacks and sender state
     const callbacks = {
       onIceCandidate: this.onIceCandidate,
       onConnectionStateChange: this.onConnectionStateChange,
@@ -291,6 +304,7 @@ class WebRTCManager {
       onDataChannelOpen: this.onDataChannelOpen,
       onDataChannelMessage: this.onDataChannelMessage
     };
+    const isSender = this.isSender;
     
     // Close everything
     this.close();
@@ -299,8 +313,12 @@ class WebRTCManager {
     await new Promise(resolve => setTimeout(resolve, 200));
     
     // Reinitialize with fresh state
-    this.initializePeerConnection(this.isSender);
-    this.setupDataChannel(this.isSender);
+    this.initializePeerConnection(isSender);
+    
+    // Only setup data channel if it was created (for sender)
+    if (this.dc) {
+      this.setupDataChannel(isSender);
+    }
     
     // Restore callbacks
     this.onIceCandidate = callbacks.onIceCandidate;
