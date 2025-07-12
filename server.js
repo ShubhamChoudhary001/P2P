@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "https://sharep2p.netlify.app",
+    origin: ["http://localhost:3000", "https://sharep2p.netlify.app"],
     methods: ["GET", "POST"]
   }
 });
