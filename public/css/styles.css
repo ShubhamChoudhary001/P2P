@@ -736,7 +736,10 @@ h1 {
 
 /* Legacy download link (for backward compatibility) */
 .download-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 18px 32px;
   background: linear-gradient(135deg, #ef4444, #dc2626);
   color: white;
@@ -752,6 +755,7 @@ h1 {
   letter-spacing: 0.5px;
   position: relative;
   overflow: hidden;
+  min-width: 200px;
 }
 
 .download-link::before {
@@ -1050,6 +1054,43 @@ h1 {
   .btn-clear-files {
     align-self: flex-end;
   }
+  
+  /* Download section mobile optimizations */
+  .download-section {
+    margin-top: 24px;
+    padding: 20px;
+  }
+  
+  .download-link {
+    padding: 16px 24px;
+    font-size: 1rem;
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+  
+  .file-details {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .file-name {
+    font-size: 1rem;
+    word-break: break-word;
+  }
+  
+  .btn-download-file {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    min-width: auto;
+    flex: 1;
+  }
+  
+  .btn-remove-file {
+    padding: 10px;
+    min-width: 40px;
+    height: 40px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1087,6 +1128,92 @@ h1 {
 
   .modal-content {
     padding: 28px 20px;
+  }
+  
+  /* Extra small mobile optimizations for download section */
+  .download-section {
+    margin-top: 20px;
+    padding: 16px;
+  }
+  
+  .received-files-header h3 {
+    font-size: 1.1rem;
+  }
+  
+  .received-file-item {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .file-name {
+    font-size: 0.95rem;
+    line-height: 1.3;
+  }
+  
+  .file-details {
+    font-size: 0.8rem;
+  }
+  
+  .file-actions {
+    gap: 8px;
+  }
+  
+  .btn-download-file {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    gap: 6px;
+  }
+  
+  .btn-remove-file {
+    padding: 8px;
+    min-width: 36px;
+    height: 36px;
+    font-size: 0.8rem;
+  }
+  
+  .download-link {
+    padding: 14px 20px;
+    font-size: 0.95rem;
+  }
+  
+  .btn-clear-files {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+}
+
+/* ========================================
+   MOBILE TOUCH OPTIMIZATIONS
+   ======================================== */
+
+/* Ensure buttons are touch-friendly on mobile */
+@media (max-width: 768px) {
+  .btn,
+  .btn-download-file,
+  .btn-remove-file,
+  .btn-clear-files,
+  .download-link {
+    min-height: 44px; /* Apple's recommended minimum touch target size */
+    touch-action: manipulation; /* Optimize for touch */
+  }
+  
+  /* Improve touch feedback */
+  .btn:active,
+  .btn-download-file:active,
+  .btn-remove-file:active,
+  .btn-clear-files:active,
+  .download-link:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+  
+  /* Better spacing for touch targets */
+  .file-actions {
+    gap: 12px;
+  }
+  
+  .received-file-item {
+    margin-bottom: 20px; /* More space between items for easier touch */
   }
 }
 
