@@ -5,7 +5,14 @@
 
 const CONFIG = {
   // Server Configuration
-  SERVER_URL: window.location.origin, // Automatically detect localhost or production
+  SERVER_URL: (() => {
+    // Check if we're in development (localhost) or production
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:3000'; // Local development
+    } else {
+      return 'https://shareshort.onrender.com'; // Production - replace with your actual Render URL
+    }
+  })(),
   
   // WebRTC Configuration
   ICE_SERVERS: [
