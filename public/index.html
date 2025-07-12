@@ -589,7 +589,25 @@
         this.currentFiles = null; // Changed from currentFile to currentFiles
         this.transferProgress = 0;
         
-        this.config = { iceServers: [] }; // LAN only
+        this.config = { 
+          iceServers: [
+            // STUN servers for NAT traversal (free)
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            
+            // Optional: Add TURN servers for relay when direct connection fails
+            // You'll need to set up your own TURN server or use a service
+            // Example TURN server (replace with your own):
+            // {
+            //   urls: 'turn:your-turn-server.com:3478',
+            //   username: 'username',
+            //   credential: 'password'
+            // }
+          ]
+        };
         
         this.initializeElements();
         this.setupEventListeners();
@@ -781,6 +799,14 @@
         };
         this.pc.onconnectionstatechange = () => {
           console.log('Connection state:', this.pc.connectionState);
+        };
+        
+        // Monitor ICE connection state to detect connection type
+        this.pc.oniceconnectionstatechange = () => {
+          console.log('ICE connection state:', this.pc.iceConnectionState);
+          if (this.pc.iceConnectionState === 'connected' || this.pc.iceConnectionState === 'completed') {
+            this.detectConnectionType();
+          }
         };
         if (isSender) {
           this.pc.createOffer().then(async (offer) => {
@@ -1083,6 +1109,55 @@
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      }
+
+      detectConnectionType() {
+        if (!this.pc) return;
+        
+        const stats = this.pc.getStats();
+        stats.then(results => {
+          let isLocalNetwork = true;
+          let connectionType = 'Unknown';
+          
+          results.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+              const localCandidate = results.get(report.localCandidateId);
+              const remoteCandidate = results.get(report.remoteCandidateId);
+              
+              if (localCandidate && remoteCandidate) {
+                // Check if both candidates are local network addresses
+                const isLocalLocal = localCandidate.candidateType === 'host' || 
+                                   localCandidate.address?.startsWith('192.168.') ||
+                                   localCandidate.address?.startsWith('10.') ||
+                                   localCandidate.address?.startsWith('172.');
+                                   
+                const isLocalRemote = remoteCandidate.candidateType === 'host' || 
+                                    remoteCandidate.address?.startsWith('192.168.') ||
+                                    remoteCandidate.address?.startsWith('10.') ||
+                                    remoteCandidate.address?.startsWith('172.');
+                
+                if (!isLocalLocal || !isLocalRemote) {
+                  isLocalNetwork = false;
+                }
+                
+                if (localCandidate.candidateType === 'relay' || remoteCandidate.candidateType === 'relay') {
+                  connectionType = 'TURN Relay';
+                } else if (localCandidate.candidateType === 'srflx' || remoteCandidate.candidateType === 'srflx') {
+                  connectionType = 'STUN (Internet)';
+                } else if (localCandidate.candidateType === 'host' && remoteCandidate.candidateType === 'host') {
+                  connectionType = 'Local Network';
+                }
+              }
+            }
+          });
+          
+          const statusText = isLocalNetwork ? 
+            `Connected to ${this.peerId} (Local Network)` : 
+            `Connected to ${this.peerId} (${connectionType})`;
+          
+          this.updateConnectionStatus(statusText, 'connected');
+          console.log(`Connection type: ${connectionType}, Local network: ${isLocalNetwork}`);
+        });
       }
     }
 
