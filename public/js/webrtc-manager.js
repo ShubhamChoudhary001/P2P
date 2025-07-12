@@ -43,7 +43,6 @@ class WebRTCManager {
       this.dc = this.pc.createDataChannel('file', {
         ordered: true, // Ensure ordered delivery
         maxRetransmits: 3, // Allow some retransmissions for reliability
-        maxPacketLifeTime: 1000, // 1 second packet lifetime
         priority: 'high' // High priority for file transfer
       });
       this.setupDataChannel(true);
