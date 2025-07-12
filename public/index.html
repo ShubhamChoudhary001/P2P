@@ -11,8 +11,12 @@
 </head>
 <body>
   <div class="container">
-    <h1>ShareP2P BY SHU-RY</h1>
-    <p class="subtitle">Secure peer-to-peer file sharing app</p>
+    <div class="header-row">
+      <div class="header-content">
+        <h1>SHU-RY <br>shareP2P</h1>
+        <p class="subtitle">Secure peer-to-peer file sharing app</p>
+      </div>
+    </div>
     
     <!-- Connection Status -->
     <div class="connection-status status-disconnected" id="connectionStatus">
@@ -51,6 +55,9 @@
         <span class="icon">❌</span>Disconnect
       </button>
     </div>
+    <div class="madeby">
+      <p>Made by SHU-RY</p>
+    </div>
 
     <!-- Progress Section -->
     <div class="progress-section" id="progressSection">
@@ -70,6 +77,7 @@
       </a>
     </div>
   </div>
+ 
 
   <!-- Connection Modal -->
   <div class="modal" id="connectionModal">
@@ -83,6 +91,8 @@
       </div>
     </div>
   </div>
+
+
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   
