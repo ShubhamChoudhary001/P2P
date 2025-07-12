@@ -10,11 +10,18 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <div id="intro-overlay">
+    <div class="intro-content">
+      <img src="/src/logo.png" alt="SHU-RY Logo" class="intro-logo" />
+      <span class="intro-title">ShareP2P</span>
+    </div>
+  </div>
   <div class="container">
     <div class="header-row">
       <div class="header-content">
-        <h1>SHU-RY <br>shareP2P</h1>
-        <p class="subtitle">Secure peer-to-peer file sharing app</p>
+        <h3 class="brand-name">SHU-RY</h3>
+        <h1 class="app-title">ShareP2P</h1>
+        <p class="subtitle">Secure peer-to-peer file sharing Platform</p>
       </div>
     </div>
     
@@ -57,6 +64,15 @@
     </div>
     <div class="madeby">
       <p>Made by SHU-RY</p>
+      <p>Version 1.0.0</p>
+    </div>
+    <div class="social-links">
+      <a href="https://www.linkedin.com/in/shubham-choudhary-009345248" target="_blank" rel="noopener" class="social-link linkedin">
+        <img src="/src/linkedin.svg" alt="LinkedIn" class="social-svg" /> LinkedIn
+      </a>
+      <a href="https://www.instagram.com/s_h_u_r_y/" target="_blank" rel="noopener" class="social-link instagram">
+        <img src="/src/instagram.svg" alt="Instagram" class="social-svg" /> Instagram
+      </a>
     </div>
 
     <!-- Progress Section -->
@@ -103,5 +119,17 @@
   <script src="js/socket-manager.js"></script>
   <script src="js/ui-manager.js"></script>
   <script src="js/app.js"></script>
+  <script>
+  window.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      const overlay = document.getElementById('intro-overlay');
+      if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.style.pointerEvents = 'none';
+        setTimeout(() => overlay.remove(), 800);
+      }
+    }, 1600);
+  });
+  </script>
 </body>
 </html>
