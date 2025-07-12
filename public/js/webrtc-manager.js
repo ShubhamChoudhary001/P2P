@@ -29,10 +29,23 @@ class WebRTCManager {
     // Store the sender state
     this.isSender = isSender;
     
-    this.pc = new RTCPeerConnection({ iceServers: this.config.ICE_SERVERS });
+    // Optimized RTCPeerConnection configuration for speed
+    this.pc = new RTCPeerConnection({ 
+      iceServers: this.config.ICE_SERVERS,
+      iceCandidatePoolSize: 10, // Increase ICE candidate pool
+      bundlePolicy: 'max-bundle', // Bundle all media
+      rtcpMuxPolicy: 'require', // Require RTCP multiplexing
+      iceTransportPolicy: 'all' // Use all ICE candidates
+    });
     
     if (isSender) {
-      this.dc = this.pc.createDataChannel('file');
+      // Optimized data channel configuration for speed
+      this.dc = this.pc.createDataChannel('file', {
+        ordered: true, // Ensure ordered delivery
+        maxRetransmits: 3, // Allow some retransmissions for reliability
+        maxPacketLifeTime: 1000, // 1 second packet lifetime
+        priority: 'high' // High priority for file transfer
+      });
       this.setupDataChannel(true);
     } else {
       this.pc.ondatachannel = (e) => {
@@ -380,13 +393,13 @@ class WebRTCManager {
         if (currentBuffer > maxBuffer * 0.8) {
           console.log('⏳ Buffer getting full, waiting... bufferedAmount:', currentBuffer, 'max:', maxBuffer);
           
-          // Wait for buffer to clear
+          // Wait for buffer to clear with optimized interval
           await new Promise((resolveBuffer) => {
             const checkBuffer = () => {
               if (this.dc.bufferedAmount <= maxBuffer * 0.5) {
                 resolveBuffer();
               } else {
-                setTimeout(checkBuffer, 50);
+                setTimeout(checkBuffer, this.config.BUFFER_CHECK_INTERVAL);
               }
             };
             checkBuffer();
@@ -402,8 +415,8 @@ class WebRTCManager {
         this.sendQueue.shift();
         resolve();
         
-        // Small delay between sends
-        await new Promise(resolve => setTimeout(resolve, 5));
+        // Optimized delay between sends
+        await new Promise(resolve => setTimeout(resolve, this.config.QUEUE_PROCESSING_DELAY));
         
       } catch (error) {
         console.error('❌ Error sending data:', error);
@@ -425,7 +438,7 @@ class WebRTCManager {
   }
 
   /**
-   * Send file through data channel
+   * Send file through data channel - Optimized for Speed
    * @param {File} file - File to send
    * @param {Function} onProgress - Progress callback
    */
@@ -440,6 +453,7 @@ class WebRTCManager {
       let offset = 0;
       const chunkSize = this.config.CHUNK_SIZE;
       const maxBufferedAmount = this.config.MAX_BUFFERED_AMOUNT;
+      let lastProgressUpdate = 0;
 
       const sendChunk = () => {
         if (offset >= file.size) {
@@ -447,7 +461,8 @@ class WebRTCManager {
           return;
         }
 
-        if (this.dc.bufferedAmount > maxBufferedAmount) {
+        // Optimized buffer checking
+        if (this.dc.bufferedAmount > maxBufferedAmount * 0.9) {
           this.dc.onbufferedamountlow = () => {
             this.dc.onbufferedamountlow = null;
             sendChunk();
@@ -460,12 +475,19 @@ class WebRTCManager {
           this.dc.send(e.target.result);
           offset += e.target.result.byteLength;
           
-          if (onProgress) {
+          // Optimized progress updates (less frequent for better performance)
+          if (onProgress && Date.now() - lastProgressUpdate > this.config.PROGRESS_UPDATE_INTERVAL) {
             const progress = (offset / file.size) * 100;
             onProgress(progress, offset, file.size);
+            lastProgressUpdate = Date.now();
           }
           
-          sendChunk();
+          // Use requestAnimationFrame for better performance
+          if (offset < file.size) {
+            requestAnimationFrame(sendChunk);
+          } else {
+            resolve();
+          }
         };
         reader.readAsArrayBuffer(chunk);
       };
