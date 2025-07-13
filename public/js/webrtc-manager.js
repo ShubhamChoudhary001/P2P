@@ -105,7 +105,7 @@ class WebRTCManager {
       this.setupDataChannel(true);
     } else {
       this.pc.ondatachannel = (e) => {
-        console.log('Data channel received');
+        console.log('🔗 ondatachannel event fired on receiver');
         this.dc = e.channel;
         this.setupDataChannel(false);
       };
@@ -136,6 +136,7 @@ class WebRTCManager {
    * @param {boolean} isSender - Whether this peer is the sender
    */
   setupDataChannel(isSender) {
+    console.log('🔧 setupDataChannel called, isSender:', isSender);
     if (!this.dc) {
       console.error('Cannot setup data channel: data channel is null');
       return;
