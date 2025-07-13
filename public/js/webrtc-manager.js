@@ -75,12 +75,21 @@ class WebRTCManager {
     this.connectionState = 'connecting';
     
     // Set a timeout to reset connection state if it gets stuck
-    setTimeout(() => {
-      if (this.connectionState === 'connecting' && (!this.pc || this.pc.connectionState === 'new')) {
+    this.connectionTimeout = setTimeout(() => {
+      if (this.connectionState === 'connecting') {
         console.log('⚠️ Connection stuck in connecting state, resetting...');
+        console.log('📊 Connection state details:', {
+          hasPC: !!this.pc,
+          pcConnectionState: this.pc?.connectionState,
+          pcSignalingState: this.pc?.signalingState,
+          hasDataChannel: !!this.dc,
+          dcReadyState: this.dc?.readyState
+        });
         this.connectionState = 'disconnected';
+        // Clear the timeout reference
+        this.connectionTimeout = null;
       }
-    }, 10000); // 10 second timeout
+    }, 15000); // 15 second timeout
     
     // Store the sender state
     this.isSender = isSender;
@@ -114,12 +123,12 @@ class WebRTCManager {
     if (isSender) {
       console.log('🔧 Creating data channel on sender...');
       try {
-        // Optimized data channel configuration for maximum speed
-        this.dc = this.pc.createDataChannel('file', {
-          ordered: true, // Ensure ordered delivery
-          maxRetransmits: 1, // Minimal retransmissions for speed
-          priority: 'high', // High priority for file transfer
-          // Optimizations for high-speed transfers
+      // Optimized data channel configuration for maximum speed
+      this.dc = this.pc.createDataChannel('file', {
+        ordered: true, // Ensure ordered delivery
+        maxRetransmits: 1, // Minimal retransmissions for speed
+        priority: 'high', // High priority for file transfer
+        // Optimizations for high-speed transfers
           negotiated: false // Let WebRTC handle negotiation
         });
         console.log('🔧 Data channel created on sender:', {
@@ -132,7 +141,7 @@ class WebRTCManager {
           maxPacketLifeTime: this.dc.maxPacketLifeTime
         });
         console.log('🔧 Data channel created on sender, setting up...');
-        this.setupDataChannel(true);
+      this.setupDataChannel(true);
       } catch (error) {
         console.error('❌ Error creating data channel:', error);
         this.connectionState = 'failed';
@@ -157,7 +166,7 @@ class WebRTCManager {
         
         // Set up the data channel immediately
         try {
-          this.setupDataChannel(false);
+        this.setupDataChannel(false);
           console.log('🔗 Data channel setup completed for receiver');
         } catch (error) {
           console.error('❌ Error setting up data channel for receiver:', error);
@@ -170,8 +179,18 @@ class WebRTCManager {
       console.log('Connection state:', this.pc.connectionState);
       if (this.pc.connectionState === 'connected') {
         this.connectionState = 'connected';
+        // Clear connection timeout on successful connection
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
       } else if (this.pc.connectionState === 'failed' || this.pc.connectionState === 'disconnected') {
         this.connectionState = 'failed';
+        // Clear connection timeout on failure
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
         // Reset after a delay to allow for retry
         setTimeout(() => {
           if (this.connectionState === 'failed') {
@@ -479,13 +498,13 @@ class WebRTCManager {
           hasDataChannel: !!this.dc,
           dataChannelState: this.dc?.readyState || 'none'
         });
-        
-        const offer = await this.pc.createOffer();
+      
+      const offer = await this.pc.createOffer();
         console.log('✅ Offer created successfully:', offer);
-        await this.pc.setLocalDescription(offer);
+      await this.pc.setLocalDescription(offer);
         console.log('✅ Local description set successfully');
-        console.log('Created offer');
-        return offer;
+      console.log('Created offer');
+      return offer;
       } else {
         console.warn('❌ Signaling state not stable, skipping offer creation. State:', this.pc.signalingState);
         return undefined;
@@ -505,10 +524,10 @@ class WebRTCManager {
         try {
           console.log('🔄 Retrying offer creation after reset...');
           if (this.pc.signalingState === 'stable') {
-            const offer = await this.pc.createOffer();
-            await this.pc.setLocalDescription(offer);
+          const offer = await this.pc.createOffer();
+          await this.pc.setLocalDescription(offer);
             console.log('✅ Created offer after reset');
-            return offer;
+          return offer;
           } else {
             console.warn('❌ Signaling state not stable after reset, skipping offer creation. State:', this.pc.signalingState);
             return undefined;
@@ -810,6 +829,13 @@ class WebRTCManager {
    */
   forceResetConnectionState() {
     console.log('🔄 Force resetting connection state from:', this.connectionState);
+    
+    // Clear connection timeout if it exists
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+    
     this.connectionState = 'disconnected';
     this.isCreatingOffer = false;
     this.isHandlingOffer = false;
@@ -1072,7 +1098,7 @@ class WebRTCManager {
             if (this.dc.bufferedAmount > 0) {
               setTimeout(waitForBufferFlush, 50);
             } else {
-              resolve();
+          resolve();
             }
           };
           waitForBufferFlush();
@@ -1301,6 +1327,12 @@ class WebRTCManager {
     this.isCreatingOffer = false;
     this.isHandlingOffer = false;
     this.isHandlingAnswer = false;
+    
+    // Clear connection timeout if it exists
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
     
     // Reset connection state
     this.connectionState = 'disconnected';

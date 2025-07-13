@@ -35,6 +35,9 @@ class P2PFileSharing {
       eofReceived: false // <-- add this flag
     };
     
+    // Connection state to prevent multiple simultaneous connection attempts
+    this.connectionAttemptInProgress = false;
+    
     // File history for received files
     this.receivedFiles = [];
     
@@ -159,6 +162,10 @@ class P2PFileSharing {
   setupWebRTCCallbacks() {
     this.webrtcManager.onDataChannelOpen = (isSender) => {
       console.log('🔗 Data channel opened, isSender:', isSender);
+      
+      // Reset connection attempt flag since connection is successful
+      this.connectionAttemptInProgress = false;
+      
       if (isSender && this.currentFiles && this.currentFiles.length > 0) {
         console.log('📤 Starting file transfer as sender (onDataChannelOpen)');
         this.sendFiles(this.currentFiles);
@@ -184,6 +191,11 @@ class P2PFileSharing {
     };
     this.webrtcManager.onConnectionStateChange = (state) => {
       console.log('🔗 WebRTC connection state:', state);
+      
+      // Reset connection attempt flag on connection state changes
+      if (state === 'connected' || state === 'failed' || state === 'disconnected') {
+        this.connectionAttemptInProgress = false;
+      }
     };
     this.webrtcManager.onIceConnectionStateChange = (state) => {
       console.log('🧊 ICE connection state:', state);
@@ -282,6 +294,10 @@ class P2PFileSharing {
       completionCheckInterval: null,
       lastChunkTime: 0
     };
+    
+    // Also reset connection attempt flag
+    this.connectionAttemptInProgress = false;
+    
     console.log('🔄 File transfer state reset');
   }
 
@@ -293,6 +309,20 @@ class P2PFileSharing {
       isConnected: this.isConnected,
       hasFiles: !!this.currentFiles
     });
+    
+    // Prevent multiple simultaneous file transfer attempts
+    if (this.fileTransferState.isTransferring) {
+      console.log('⚠️ File transfer already in progress, skipping new attempt');
+      return;
+    }
+    
+    // Prevent multiple simultaneous connection attempts
+    if (this.connectionAttemptInProgress) {
+      console.log('⚠️ Connection attempt already in progress, skipping new attempt');
+      return;
+    }
+    
+    this.connectionAttemptInProgress = true;
     
     // Check if we're already in a connection state
     if (this.webrtcManager.connectionState === 'connecting' || this.webrtcManager.connectionState === 'connected') {
@@ -333,8 +363,14 @@ class P2PFileSharing {
       this.webrtcManager.initializePeerConnection(isSender);
 
       // Determine who creates the offer based on device ID (lower ID creates offer)
-      const shouldCreateOffer = this.deviceId < this.peerId;
-      console.log('🔍 Device ID comparison:', {deviceId: this.deviceId, peerId: this.peerId, shouldCreateOffer});
+      // Use localeCompare for proper string comparison to avoid deadlocks
+      const shouldCreateOffer = this.deviceId.localeCompare(this.peerId) < 0;
+      console.log('🔍 Device ID comparison:', {
+        deviceId: this.deviceId, 
+        peerId: this.peerId, 
+        shouldCreateOffer,
+        comparison: this.deviceId.localeCompare(this.peerId)
+      });
 
       if (shouldCreateOffer) {
         setTimeout(async () => {
@@ -362,12 +398,42 @@ class P2PFileSharing {
             this.uiManager.showError('Failed to create connection');
             // Reset connection state on error
             this.webrtcManager.forceResetConnectionState();
+            // Reset connection attempt flag
+            this.connectionAttemptInProgress = false;
           }
         }, 500); // Increased delay to 500ms to allow connection to stabilize
       } else {
         console.log('📥 Waiting for peer to create offer...');
+        
+        // Add a fallback timeout to prevent deadlock
+        // If no offer is received within 3 seconds, force create an offer
+        setTimeout(async () => {
+          if (this.webrtcManager.connectionState === 'connecting' && !this.webrtcManager.pc?.currentRemoteDescription) {
+            console.log('⚠️ No offer received within timeout, forcing offer creation to prevent deadlock');
+            try {
+              const offer = await this.webrtcManager.createOffer();
+              if (offer) {
+                console.log('✅ Sending forced offer to peer');
+                this.socketManager.sendSignal(this.peerId, offer);
+              }
+            } catch (error) {
+              console.error('❌ Error creating forced offer:', error);
+              this.webrtcManager.forceResetConnectionState();
+              // Reset connection attempt flag
+              this.connectionAttemptInProgress = false;
+            }
+          }
+        }, 3000); // 3 second timeout
       }
     }, 100); // 100ms delay to ensure cleanup
+    
+    // Add a safety timeout to reset connection attempt flag
+    setTimeout(() => {
+      if (this.connectionAttemptInProgress) {
+        console.log('⚠️ Connection attempt flag stuck, resetting...');
+        this.connectionAttemptInProgress = false;
+      }
+    }, 20000); // 20 second safety timeout
   }
 
   /**
