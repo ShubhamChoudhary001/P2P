@@ -37,7 +37,7 @@ class WebRTCManager {
           { urls: 'stun:0.0.0.0:3478' }
         ],
         iceCandidatePoolSize: 10,
-        bundlePolicy: 'max-bundle',
+        bundlePolicy: 'balanced', // Changed from max-bundle to balanced for compatibility
         rtcpMuxPolicy: 'require',
         iceTransportPolicy: 'all', // Allow all for local network
         iceConnectionReceivingTimeout: 3000, // Faster timeout
@@ -48,7 +48,7 @@ class WebRTCManager {
       return {
         iceServers: this.config.ICE_SERVERS,
         iceCandidatePoolSize: 20,
-        bundlePolicy: 'max-bundle',
+        bundlePolicy: 'balanced', // Changed from max-bundle to balanced for compatibility
         rtcpMuxPolicy: 'require',
         iceTransportPolicy: 'all',
         iceConnectionReceivingTimeout: 5000,
@@ -74,6 +74,8 @@ class WebRTCManager {
     
     // Get optimized ICE configuration
     const iceConfig = this.createOptimizedIceConfig();
+    
+    console.log('🔧 ICE Configuration:', iceConfig);
     
     // Optimized RTCPeerConnection configuration for maximum speed
     this.pc = new RTCPeerConnection(iceConfig);
@@ -103,11 +105,23 @@ class WebRTCManager {
         negotiated: false, // Let WebRTC handle negotiation
         id: 0 // Use first available ID
       });
+      console.log('🔧 Data channel created on sender:', {
+        label: this.dc.label,
+        id: this.dc.id,
+        readyState: this.dc.readyState,
+        protocol: this.dc.protocol
+      });
       console.log('🔧 Data channel created on sender, setting up...');
       this.setupDataChannel(true);
     } else {
       this.pc.ondatachannel = (e) => {
         console.log('🔗 ondatachannel event fired on receiver');
+        console.log('🔗 Data channel details:', {
+          label: e.channel.label,
+          id: e.channel.id,
+          readyState: e.channel.readyState,
+          protocol: e.channel.protocol
+        });
         this.dc = e.channel;
         this.setupDataChannel(false);
       };
@@ -243,7 +257,10 @@ class WebRTCManager {
     } catch (error) {
       console.error('❌ Error creating offer:', error);
       // Only recreate if it's a critical state error
-      if (error.message.includes('SDP does not match') || error.message.includes('InvalidModificationError')) {
+      if (error.message.includes('SDP does not match') || 
+          error.message.includes('InvalidModificationError') ||
+          error.message.includes('BUNDLE group') ||
+          error.message.includes('max-bundle')) {
         console.log('🔄 Critical error detected, recreating connection...');
         await this.forceReset();
         
@@ -295,7 +312,10 @@ class WebRTCManager {
       console.error('Error handling offer:', error);
       
       // Only recreate if it's a critical state error
-      if (error.message.includes('SDP does not match') || error.message.includes('InvalidModificationError')) {
+      if (error.message.includes('SDP does not match') || 
+          error.message.includes('InvalidModificationError') ||
+          error.message.includes('BUNDLE group') ||
+          error.message.includes('max-bundle')) {
         console.log('🔄 Critical error detected, recreating connection...');
         await this.forceReset();
         
