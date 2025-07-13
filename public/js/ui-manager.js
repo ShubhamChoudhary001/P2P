@@ -54,6 +54,10 @@ class UIManager {
       this.elements.disconnectBtn.addEventListener('click', handlers.disconnect);
     }
     
+    if (this.elements.resetBtn) {
+      this.elements.resetBtn.addEventListener('click', handlers.resetConnection);
+    }
+    
     // Modal events
     if (this.elements.connectBtn) {
       this.elements.connectBtn.addEventListener('click', handlers.connectToDevice);
@@ -156,6 +160,10 @@ class UIManager {
     
     if (this.elements.disconnectBtn) {
       this.elements.disconnectBtn.classList.toggle('hidden', !isConnected);
+    }
+    
+    if (this.elements.resetBtn) {
+      this.elements.resetBtn.classList.toggle('hidden', !isConnected);
     }
     
     if (this.elements.recvBtn) {

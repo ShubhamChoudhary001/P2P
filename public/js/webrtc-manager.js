@@ -8,20 +8,16 @@ class WebRTCManager {
     this.config = config;
     this.pc = null;
     this.dc = null;
-    this.peerId = null;
-    this.onDataChannelOpen = null;
-    this.onDataChannelMessage = null;
-    this.onConnectionStateChange = null;
-    this.onIceConnectionStateChange = null;
-    
-    // Queue for sending data
+    this.isSender = false;
     this.sendQueue = [];
     this.isSending = false;
-    this.isCreatingOffer = false;
-    
-    // Queue for ICE candidates (to handle timing issues)
     this.iceCandidateQueue = [];
     this.remoteDescriptionSet = false;
+    this.isCreatingOffer = false;
+    this.isHandlingOffer = false;
+    this.isHandlingAnswer = false;
+    this.connectionState = 'disconnected'; // 'disconnected', 'connecting', 'connected', 'failed'
+    this.performanceMonitorInterval = null;
   }
 
   /**
@@ -67,7 +63,24 @@ class WebRTCManager {
    * @param {boolean} isSender - Whether this peer is the sender
    */
   initializePeerConnection(isSender) {
+    // Prevent multiple simultaneous initializations
+    if (this.connectionState === 'connecting' || this.connectionState === 'connected') {
+      console.log('⚠️ Connection already in progress or connected, skipping initialization');
+      return;
+    }
+    
     console.log(`Initializing WebRTC as ${isSender ? 'sender' : 'receiver'}`);
+    
+    // Update connection state
+    this.connectionState = 'connecting';
+    
+    // Set a timeout to reset connection state if it gets stuck
+    setTimeout(() => {
+      if (this.connectionState === 'connecting' && (!this.pc || this.pc.connectionState === 'new')) {
+        console.log('⚠️ Connection stuck in connecting state, resetting...');
+        this.connectionState = 'disconnected';
+      }
+    }, 10000); // 10 second timeout
     
     // Store the sender state
     this.isSender = isSender;
@@ -100,23 +113,31 @@ class WebRTCManager {
     
     if (isSender) {
       console.log('🔧 Creating data channel on sender...');
-      // Optimized data channel configuration for maximum speed
-      this.dc = this.pc.createDataChannel('file', {
-        ordered: true, // Ensure ordered delivery
-        maxRetransmits: 1, // Minimal retransmissions for speed
-        priority: 'high', // High priority for file transfer
-        // Optimizations for high-speed transfers
-        negotiated: false, // Let WebRTC handle negotiation
-        id: 0 // Use first available ID
-      });
-      console.log('🔧 Data channel created on sender:', {
-        label: this.dc.label,
-        id: this.dc.id,
-        readyState: this.dc.readyState,
-        protocol: this.dc.protocol
-      });
-      console.log('🔧 Data channel created on sender, setting up...');
-      this.setupDataChannel(true);
+      try {
+        // Optimized data channel configuration for maximum speed
+        this.dc = this.pc.createDataChannel('file', {
+          ordered: true, // Ensure ordered delivery
+          maxRetransmits: 1, // Minimal retransmissions for speed
+          priority: 'high', // High priority for file transfer
+          // Optimizations for high-speed transfers
+          negotiated: false // Let WebRTC handle negotiation
+        });
+        console.log('🔧 Data channel created on sender:', {
+          label: this.dc.label,
+          id: this.dc.id,
+          readyState: this.dc.readyState,
+          protocol: this.dc.protocol,
+          ordered: this.dc.ordered,
+          maxRetransmits: this.dc.maxRetransmits,
+          maxPacketLifeTime: this.dc.maxPacketLifeTime
+        });
+        console.log('🔧 Data channel created on sender, setting up...');
+        this.setupDataChannel(true);
+      } catch (error) {
+        console.error('❌ Error creating data channel:', error);
+        this.connectionState = 'failed';
+        throw error;
+      }
     } else {
       this.pc.ondatachannel = (e) => {
         console.log('🔗 ondatachannel event fired on receiver');
@@ -124,16 +145,40 @@ class WebRTCManager {
           label: e.channel.label,
           id: e.channel.id,
           readyState: e.channel.readyState,
-          protocol: e.channel.protocol
+          protocol: e.channel.protocol,
+          ordered: e.channel.ordered,
+          maxRetransmits: e.channel.maxRetransmits,
+          maxPacketLifeTime: e.channel.maxPacketLifeTime
         });
+        console.log('🔗 Setting up data channel for receiver...');
+        
+        // Store the data channel
         this.dc = e.channel;
-        this.setupDataChannel(false);
+        
+        // Set up the data channel immediately
+        try {
+          this.setupDataChannel(false);
+          console.log('🔗 Data channel setup completed for receiver');
+        } catch (error) {
+          console.error('❌ Error setting up data channel for receiver:', error);
+        }
       };
     }
 
     // Set up event handlers
     this.pc.onconnectionstatechange = () => {
       console.log('Connection state:', this.pc.connectionState);
+      if (this.pc.connectionState === 'connected') {
+        this.connectionState = 'connected';
+      } else if (this.pc.connectionState === 'failed' || this.pc.connectionState === 'disconnected') {
+        this.connectionState = 'failed';
+        // Reset after a delay to allow for retry
+        setTimeout(() => {
+          if (this.connectionState === 'failed') {
+            this.connectionState = 'disconnected';
+          }
+        }, 2000);
+      }
       if (this.onConnectionStateChange) {
         this.onConnectionStateChange(this.pc.connectionState);
       }
@@ -141,6 +186,15 @@ class WebRTCManager {
 
     this.pc.oniceconnectionstatechange = () => {
       console.log('ICE connection state:', this.pc.iceConnectionState);
+      if (this.pc.iceConnectionState === 'failed' || this.pc.iceConnectionState === 'disconnected') {
+        // Reset connection state on ICE failure
+        setTimeout(() => {
+          if (this.connectionState === 'connecting') {
+            console.log('⚠️ ICE connection failed, resetting connection state');
+            this.connectionState = 'disconnected';
+          }
+        }, 1000);
+      }
       if (this.onIceConnectionStateChange) {
         this.onIceConnectionStateChange(this.pc.iceConnectionState);
       }
@@ -148,6 +202,10 @@ class WebRTCManager {
 
     this.pc.onsignalingstatechange = () => {
       console.log('Signaling state changed:', this.pc.signalingState);
+      // Reset connection state if signaling fails
+      if (this.pc.signalingState === 'closed') {
+        this.connectionState = 'disconnected';
+      }
     };
   }
 
@@ -162,6 +220,20 @@ class WebRTCManager {
       return;
     }
     
+    console.log('🔧 Data channel before setup:', {
+      label: this.dc.label,
+      id: this.dc.id,
+      readyState: this.dc.readyState,
+      protocol: this.dc.protocol,
+      ordered: this.dc.ordered,
+      maxRetransmits: this.dc.maxRetransmits,
+      maxPacketLifeTime: this.dc.maxPacketLifeTime
+    });
+    
+    // Always set up event handlers, even if data channel is already open
+    // This ensures we don't miss any events
+    console.log('🔧 Setting up data channel event handlers...');
+    
     this.dc.binaryType = 'arraybuffer';
     
     // Optimize data channel for speed
@@ -170,7 +242,78 @@ class WebRTCManager {
     }
     
     this.dc.onopen = () => {
-      console.log('Data channel open');
+      console.log('🔗 Data channel open event fired!');
+      console.log('🔗 Data channel state:', {
+        readyState: this.dc.readyState,
+        bufferedAmount: this.dc.bufferedAmount,
+        label: this.dc.label,
+        id: this.dc.id,
+        protocol: this.dc.protocol,
+        ordered: this.dc.ordered,
+        maxRetransmits: this.dc.maxRetransmits,
+        maxPacketLifeTime: this.dc.maxPacketLifeTime
+      });
+      
+      // Update connection state
+      this.connectionState = 'connected';
+      
+      // Send immediate test message to verify data channel is working
+      console.log('🔗 Sending immediate test message...');
+      try {
+        this.dc.send('{"type":"immediate_test","message":"Data channel is working!"}');
+        console.log('🔗 Immediate test message sent successfully');
+      } catch (error) {
+        console.error('❌ Error sending immediate test message:', error);
+      }
+      
+      // Test the data channel with a simple message
+      if (isSender) {
+        console.log('🔗 Sender: Testing data channel with test message...');
+        try {
+          this.dc.send('{"type":"test","message":"Data channel test from sender"}');
+          console.log('🔗 Sender: Test message sent successfully');
+          
+          // Also test binary data
+          setTimeout(() => {
+            try {
+              const testBinary = new ArrayBuffer(1024);
+              const view = new Uint8Array(testBinary);
+              for (let i = 0; i < 1024; i++) {
+                view[i] = i % 256;
+              }
+              this.dc.send(testBinary);
+              console.log('🔗 Sender: Binary test data sent successfully (1024 bytes)');
+            } catch (error) {
+              console.error('❌ Sender: Error sending binary test data:', error);
+            }
+          }, 500);
+        } catch (error) {
+          console.error('❌ Sender: Error sending test message:', error);
+        }
+      } else {
+        console.log('🔗 Receiver: Testing data channel with test message...');
+        try {
+          this.dc.send('{"type":"test","message":"Data channel test from receiver"}');
+          console.log('🔗 Receiver: Test message sent successfully');
+          
+          // Also test binary data
+          setTimeout(() => {
+            try {
+              const testBinary = new ArrayBuffer(1024);
+              const view = new Uint8Array(testBinary);
+              for (let i = 0; i < 1024; i++) {
+                view[i] = (i + 128) % 256;
+              }
+              this.dc.send(testBinary);
+              console.log('🔗 Receiver: Binary test data sent successfully (1024 bytes)');
+            } catch (error) {
+              console.error('❌ Receiver: Error sending binary test data:', error);
+            }
+          }, 500);
+        } catch (error) {
+          console.error('❌ Receiver: Error sending test message:', error);
+        }
+      }
       
       // Start performance monitoring
       this.startPerformanceMonitoring();
@@ -189,32 +332,114 @@ class WebRTCManager {
       }, 1000);
       
       if (this.onDataChannelOpen) {
+        console.log('🔗 Calling onDataChannelOpen callback with isSender:', isSender);
+        console.log('🔗 onDataChannelOpen callback details:', {
+          callbackType: typeof this.onDataChannelOpen,
+          isFunction: typeof this.onDataChannelOpen === 'function',
+          hasCurrentFiles: !!this.onDataChannelOpen.currentFiles
+        });
         this.onDataChannelOpen(isSender);
+      } else {
+        console.warn('⚠️ onDataChannelOpen callback is not set!');
       }
     };
 
     this.dc.onmessage = (e) => {
+      console.log('🔗 Data channel message received:', {
+        type: typeof e.data,
+        size: typeof e.data === 'string' ? e.data.length : e.data.byteLength,
+        readyState: this.dc.readyState,
+        hasCallback: !!this.onDataChannelMessage,
+        timestamp: Date.now()
+      });
+      
+      // Debug: Log the first few characters/bytes of the data
+      if (typeof e.data === 'string') {
+        console.log('🔗 Message content (first 100 chars):', e.data.substring(0, 100));
+      } else {
+        console.log('🔗 Binary data size:', e.data.byteLength, 'bytes');
+      }
+      
       if (this.onDataChannelMessage) {
+        console.log('🔗 Calling onDataChannelMessage callback...');
         this.onDataChannelMessage(e);
+      } else {
+        console.warn('⚠️ onDataChannelMessage callback is not set!');
       }
     };
 
     this.dc.onerror = (error) => {
-      console.error('Data channel error:', error);
+      console.error('❌ Data channel error:', error);
+      
+      // Safely access data channel properties
+      try {
+        console.error('❌ Data channel error details:', {
+          error: error,
+          readyState: this.dc ? this.dc.readyState : 'unknown',
+          label: this.dc ? this.dc.label : 'unknown',
+          id: this.dc ? this.dc.id : 'unknown'
+        });
+      } catch (accessError) {
+        console.error('❌ Data channel error details (error accessing properties):', {
+          originalError: error,
+          accessError: accessError.message
+        });
+      }
+      
+      this.connectionState = 'failed';
     };
 
     this.dc.onclose = () => {
-      console.log('Data channel closed');
+      console.log('🔗 Data channel closed');
+      
+      // Safely access data channel properties
+      try {
+        console.log('🔗 Data channel close details:', {
+          readyState: this.dc ? this.dc.readyState : 'unknown',
+          label: this.dc ? this.dc.label : 'unknown',
+          id: this.dc ? this.dc.id : 'unknown',
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        console.log('🔗 Data channel close details (error accessing properties):', {
+          error: error.message,
+          timestamp: Date.now()
+        });
+      }
+      
+      this.connectionState = 'disconnected';
       this.stopPerformanceMonitoring();
     };
     
     // Optimized buffer management
     this.dc.onbufferedamountlow = () => {
+      console.log('🔗 Data channel buffer low event');
       // Trigger queue processing when buffer is low
       if (this.sendQueue.length > 0 && !this.isSending) {
         this.processQueue();
       }
     };
+    
+    console.log('🔧 Data channel event handlers set up successfully');
+    console.log('🔧 Data channel after setup:', {
+      readyState: this.dc.readyState,
+      binaryType: this.dc.binaryType,
+      bufferedAmount: this.dc.bufferedAmount,
+      hasOnMessage: !!this.dc.onmessage,
+      hasOnOpen: !!this.dc.onopen,
+      hasOnError: !!this.dc.onerror,
+      hasOnClose: !!this.dc.onclose
+    });
+    
+    // If data channel is already open, trigger the onopen event manually
+    if (this.dc.readyState === 'open') {
+      console.log('🔧 Data channel is already open, triggering onopen event manually...');
+      setTimeout(() => {
+        if (this.dc.onopen) {
+          this.dc.onopen();
+        }
+      }, 100);
+    }
   }
 
   /**
@@ -224,9 +449,11 @@ class WebRTCManager {
   async createOffer() {
     if (this.isCreatingOffer) {
       console.log('Offer creation already in progress, skipping.');
-      return;
+      return undefined;
     }
+    
     this.isCreatingOffer = true;
+    
     try {
       console.log('🔄 Starting offer creation...');
       console.log('🔍 Current state:', {
@@ -248,6 +475,11 @@ class WebRTCManager {
       // Only create offer if signalingState is stable
       if (this.pc.signalingState === 'stable') {
         console.log('✅ Signaling state is stable, creating offer...');
+        console.log('🔧 Data channel state before offer:', {
+          hasDataChannel: !!this.dc,
+          dataChannelState: this.dc?.readyState || 'none'
+        });
+        
         const offer = await this.pc.createOffer();
         console.log('✅ Offer created successfully:', offer);
         await this.pc.setLocalDescription(offer);
@@ -260,12 +492,13 @@ class WebRTCManager {
       }
     } catch (error) {
       console.error('❌ Error creating offer:', error);
-      // Only recreate if it's a critical state error
+      // Handle specific SDP errors by recreating the connection
       if (error.message.includes('SDP does not match') || 
           error.message.includes('InvalidModificationError') ||
           error.message.includes('BUNDLE group') ||
-          error.message.includes('max-bundle')) {
-        console.log('🔄 Critical error detected, recreating connection...');
+          error.message.includes('max-bundle') ||
+          error.message.includes('order of m-lines')) {
+        console.log('🔄 SDP error detected, recreating connection...');
         await this.forceReset();
         
         // Retry once with fresh connection
@@ -297,7 +530,17 @@ class WebRTCManager {
    * @returns {Promise<RTCSessionDescription>} The created answer
    */
   async handleOffer(offer) {
+    // Prevent multiple simultaneous offer handling
+    if (this.isHandlingOffer) {
+      console.log('⚠️ Already handling an offer, skipping duplicate');
+      throw new Error('Already handling an offer');
+    }
+    
+    this.isHandlingOffer = true;
+    
     try {
+      console.log('📥 Handling offer, current signaling state:', this.pc?.signalingState);
+      
       // Check if we need a fresh connection
       if (!this.pc) {
         console.log('🔄 No peer connection, creating new one...');
@@ -305,6 +548,17 @@ class WebRTCManager {
       } else if (this.pc.signalingState !== 'stable') {
         console.log('🔄 Signaling state not stable, resetting connection...');
         await this.resetConnection();
+      }
+      
+      // Ensure we're not in the middle of creating an offer ourselves
+      if (this.isCreatingOffer) {
+        console.log('⚠️ We are currently creating an offer, waiting...');
+        // Wait a bit for our offer creation to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (this.isCreatingOffer) {
+          console.log('⚠️ Still creating offer, rejecting incoming offer');
+          throw new Error('Cannot handle offer while creating one');
+        }
       }
       
       await this.pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -321,12 +575,13 @@ class WebRTCManager {
     } catch (error) {
       console.error('Error handling offer:', error);
       
-      // Only recreate if it's a critical state error
+      // Handle specific SDP errors by recreating the connection
       if (error.message.includes('SDP does not match') || 
           error.message.includes('InvalidModificationError') ||
           error.message.includes('BUNDLE group') ||
-          error.message.includes('max-bundle')) {
-        console.log('🔄 Critical error detected, recreating connection...');
+          error.message.includes('max-bundle') ||
+          error.message.includes('order of m-lines')) {
+        console.log('🔄 SDP error detected, recreating connection...');
         await this.forceReset();
         
         // Retry once with fresh connection
@@ -343,6 +598,8 @@ class WebRTCManager {
       }
       
       throw error;
+    } finally {
+      this.isHandlingOffer = false;
     }
   }
 
@@ -351,7 +608,25 @@ class WebRTCManager {
    * @param {RTCSessionDescription} answer - The received answer
    */
   async handleAnswer(answer) {
+    // Prevent multiple simultaneous answer handling
+    if (this.isHandlingAnswer) {
+      console.log('⚠️ Already handling an answer, skipping duplicate');
+      throw new Error('Already handling an answer');
+    }
+    
+    this.isHandlingAnswer = true;
+    
     try {
+      // Check if we're in the right state to handle an answer
+      if (!this.pc) {
+        throw new Error('No peer connection to handle answer');
+      }
+      
+      if (this.pc.signalingState !== 'have-local-offer') {
+        console.log('⚠️ Wrong signaling state for answer:', this.pc.signalingState);
+        throw new Error(`Cannot handle answer in state: ${this.pc.signalingState}`);
+      }
+      
       await this.pc.setRemoteDescription(new RTCSessionDescription(answer));
       console.log('✅ Remote description set successfully');
       this.remoteDescriptionSet = true;
@@ -361,6 +636,8 @@ class WebRTCManager {
     } catch (error) {
       console.error('Error handling answer:', error);
       throw error;
+    } finally {
+      this.isHandlingAnswer = false;
     }
   }
 
@@ -529,6 +806,26 @@ class WebRTCManager {
   }
 
   /**
+   * Force reset connection state
+   */
+  forceResetConnectionState() {
+    console.log('🔄 Force resetting connection state from:', this.connectionState);
+    this.connectionState = 'disconnected';
+    this.isCreatingOffer = false;
+    this.isHandlingOffer = false;
+    this.isHandlingAnswer = false;
+    console.log('✅ Connection state reset to disconnected');
+  }
+  
+  /**
+   * Check if connection is ready for new operations
+   * @returns {boolean} True if ready
+   */
+  isReadyForNewConnection() {
+    return this.connectionState === 'disconnected' || this.connectionState === 'failed';
+  }
+
+  /**
    * Send data through data channel with queue-based flow control
    * @param {any} data - Data to send
    * @returns {Promise} Promise that resolves when data is sent
@@ -547,6 +844,13 @@ class WebRTCManager {
         return;
       }
       
+      console.log('📤 Attempting to send data:', {
+        type: typeof data,
+        size: typeof data === 'string' ? data.length : data.byteLength,
+        dataChannelState: this.dc.readyState,
+        bufferedAmount: this.dc.bufferedAmount
+      });
+      
       // Add to queue
       this.sendQueue.push({ data, resolve, reject });
       
@@ -558,10 +862,67 @@ class WebRTCManager {
   }
   
   /**
+   * Wait for all queued data to be sent
+   * @returns {Promise} Resolves when queue is empty
+   */
+  async waitForQueueEmpty() {
+    return new Promise((resolve) => {
+      const checkQueue = () => {
+        if (this.sendQueue.length === 0 && !this.isSending) {
+          resolve();
+        } else {
+          setTimeout(checkQueue, 50);
+        }
+      };
+      checkQueue();
+    });
+  }
+  
+  /**
+   * Force flush all buffered data
+   * @returns {Promise} Resolves when buffer is empty or timeout reached
+   */
+  async forceFlushBuffer() {
+    if (!this.dc) {
+      console.log('⚠️ Cannot flush buffer: data channel is null');
+      return;
+    }
+    
+    return new Promise((resolve) => {
+      const maxWaitTime = 10000; // 10 seconds
+      const startTime = Date.now();
+      
+      const checkBuffer = () => {
+        if (!this.dc) {
+          console.log('⚠️ Data channel closed during buffer flush');
+          resolve();
+          return;
+        }
+        
+        if (this.dc.bufferedAmount === 0 || (Date.now() - startTime) > maxWaitTime) {
+          console.log('📤 Buffer flush complete. Final bufferedAmount:', this.dc ? this.dc.bufferedAmount : 'N/A');
+          resolve();
+        } else {
+          setTimeout(checkBuffer, 100);
+        }
+      };
+      
+      checkBuffer();
+    });
+  }
+  
+  /**
    * Process the send queue - Optimized for Maximum Speed
    */
   async processQueue() {
     if (this.isSending || this.sendQueue.length === 0) {
+      return;
+    }
+    
+    // Check if data channel is available
+    if (!this.dc) {
+      console.error('❌ Cannot process queue: data channel is null');
+      this.isSending = false;
       return;
     }
     
@@ -571,17 +932,35 @@ class WebRTCManager {
       const { data, resolve, reject } = this.sendQueue[0];
       
       try {
+        // Check if data channel is still available and open
+        if (!this.dc || this.dc.readyState !== 'open') {
+          console.error('❌ Data channel not available or not open during queue processing');
+          this.sendQueue.shift();
+          reject(new Error('Data channel not available'));
+          continue;
+        }
+        
         // Optimized buffer checking - less aggressive waiting
         const maxBuffer = this.config.MAX_BUFFERED_AMOUNT;
         const currentBuffer = this.dc.bufferedAmount;
         
+        // Check if this is the last item in queue (likely EOF or final chunk)
+        const isLastItem = this.sendQueue.length === 1;
+        
         if (currentBuffer > maxBuffer * 0.9) {
-          console.log('⏳ Buffer full, waiting... bufferedAmount:', currentBuffer, 'max:', maxBuffer);
+          console.log('⏳ Buffer full, waiting... bufferedAmount:', currentBuffer, 'max:', maxBuffer, 'isLastItem:', isLastItem);
+          
+          // For final items, be more aggressive about waiting
+          const targetBufferLevel = isLastItem ? maxBuffer * 0.3 : maxBuffer * 0.6;
           
           // Wait for buffer to clear with faster checking
           await new Promise((resolveBuffer) => {
             const checkBuffer = () => {
-              if (this.dc.bufferedAmount <= maxBuffer * 0.6) {
+              if (!this.dc) {
+                resolveBuffer(); // Data channel was closed, stop waiting
+                return;
+              }
+              if (this.dc.bufferedAmount <= targetBufferLevel) {
                 resolveBuffer();
               } else {
                 setTimeout(checkBuffer, this.config.BUFFER_CHECK_INTERVAL);
@@ -591,14 +970,47 @@ class WebRTCManager {
           });
         }
         
+        // Check again if data channel is still available after waiting
+        if (!this.dc || this.dc.readyState !== 'open') {
+          console.error('❌ Data channel not available after buffer wait');
+          this.sendQueue.shift();
+          reject(new Error('Data channel not available after buffer wait'));
+          continue;
+        }
+        
         // Send the data
+        console.log('📤 About to call dc.send() with data:', {
+          type: typeof data,
+          size: typeof data === 'string' ? data.length : data.byteLength,
+          dataChannelState: this.dc.readyState,
+          bufferedAmount: this.dc.bufferedAmount
+        });
+        
         this.dc.send(data);
+        
         const dataSize = typeof data === 'string' ? data.length : data.byteLength;
-        console.log('📤 Data sent successfully, size:', dataSize, 'bufferedAmount:', this.dc.bufferedAmount);
+        console.log('📤 Data sent successfully, size:', dataSize, 'bufferedAmount:', this.dc.bufferedAmount, 'queueRemaining:', this.sendQueue.length - 1);
         
         // Remove from queue and resolve
         this.sendQueue.shift();
         resolve();
+        
+        // For final items, ensure buffer is flushed before continuing
+        if (isLastItem && this.dc && this.dc.bufferedAmount > 0) {
+          console.log('📤 Final item sent, waiting for buffer flush...', this.dc.bufferedAmount);
+          const flushStartTime = Date.now();
+          const maxFlushTime = 5000; // 5 seconds max
+          
+          while (this.dc && this.dc.bufferedAmount > 0 && (Date.now() - flushStartTime) < maxFlushTime) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          
+          if (this.dc && this.dc.bufferedAmount > 0) {
+            console.warn('⚠️ Buffer still not empty after timeout, but continuing');
+          } else {
+            console.log('✅ Buffer flushed completely');
+          }
+        }
         
         // Minimal delay for maximum speed
         if (this.config.QUEUE_PROCESSING_DELAY > 0) {
@@ -866,6 +1278,8 @@ class WebRTCManager {
    * Close the peer connection
    */
   close() {
+    console.log('🔄 Closing WebRTC connection...');
+    
     if (this.dc) {
       this.dc.close();
       this.dc = null;
@@ -882,6 +1296,19 @@ class WebRTCManager {
     // Clear ICE candidate queue and state
     this.iceCandidateQueue = [];
     this.remoteDescriptionSet = false;
+    
+    // Reset all operation flags
+    this.isCreatingOffer = false;
+    this.isHandlingOffer = false;
+    this.isHandlingAnswer = false;
+    
+    // Reset connection state
+    this.connectionState = 'disconnected';
+    
+    // Stop performance monitoring
+    this.stopPerformanceMonitoring();
+    
+    console.log('✅ WebRTC connection closed');
   }
 
   /**
@@ -989,13 +1416,18 @@ class WebRTCManager {
    * Monitor connection performance
    */
   startPerformanceMonitoring() {
-    if (!this.dc) return;
+    if (!this.dc) {
+      console.log('⚠️ Cannot start performance monitoring: data channel is null');
+      return;
+    }
     
     let lastBytesReceived = 0;
     let lastTime = Date.now();
     
     const monitor = setInterval(() => {
-      if (this.dc.readyState !== 'open') {
+      // Check if data channel still exists and is open
+      if (!this.dc || this.dc.readyState !== 'open') {
+        console.log('🔄 Performance monitoring stopped: data channel not available or not open');
         clearInterval(monitor);
         return;
       }
@@ -1023,16 +1455,16 @@ class WebRTCManager {
       });
     }, 2000); // Check every 2 seconds
     
-    this.performanceMonitor = monitor;
+    this.performanceMonitorInterval = monitor;
   }
 
   /**
    * Stop performance monitoring
    */
   stopPerformanceMonitoring() {
-    if (this.performanceMonitor) {
-      clearInterval(this.performanceMonitor);
-      this.performanceMonitor = null;
+    if (this.performanceMonitorInterval) {
+      clearInterval(this.performanceMonitorInterval);
+      this.performanceMonitorInterval = null;
     }
   }
 

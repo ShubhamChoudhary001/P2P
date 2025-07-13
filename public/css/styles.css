@@ -497,6 +497,18 @@ h1 {
   background: linear-gradient(135deg, #dc2626, #b91c1c);
 }
 
+.btn-reset {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  box-shadow: 0 8px 32px rgba(245, 158, 11, 0.3);
+}
+
+.btn-reset:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 20px 40px rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, #d97706, #b45309);
+}
+
 /* ========================================
    PROGRESS BAR
    ======================================== */

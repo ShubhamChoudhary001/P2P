@@ -8,16 +8,31 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const admin = require('firebase-admin');
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-if (serviceAccount.private_key) {
-  serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-}
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
 
-const db = admin.firestore();
-const feedbackCollection = db.collection('feedbacks');
+// Initialize Firebase only if service account is available
+let db = null;
+let feedbackCollection = null;
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    if (serviceAccount.private_key) {
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    
+    db = admin.firestore();
+    feedbackCollection = db.collection('feedbacks');
+    console.log('✅ Firebase initialized successfully');
+  } catch (error) {
+    console.warn('⚠️ Failed to initialize Firebase:', error.message);
+    console.log('📝 Feedback functionality will be disabled');
+  }
+} else {
+  console.log('📝 FIREBASE_SERVICE_ACCOUNT not found, feedback functionality disabled');
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -112,7 +127,10 @@ app.post('/api/feedback', async (req, res) => {
       ip: req.ip || req.connection.remoteAddress
     };
     
-    await feedbackCollection.add(feedback);
+    // Only save to Firebase if it's available
+    if (feedbackCollection) {
+      await feedbackCollection.add(feedback);
+    }
     
     // Log feedback to console
     console.log('📝 New Feedback Received:');
@@ -472,9 +490,15 @@ app.get('/api/feedback', requireAuth, async (req, res) => {
 // Feedback dashboard endpoint (protected)
 app.get('/admin/feedback', requireAuth, async (req, res) => {
   try {
-    // Fetch feedbacks from Firestore
-    const snapshot = await feedbackCollection.orderBy('timestamp', 'desc').get();
-    const feedbacks = snapshot.docs.map(doc => doc.data());
+    let feedbacks = [];
+    
+    // Fetch feedbacks from Firestore only if available
+    if (feedbackCollection) {
+      const snapshot = await feedbackCollection.orderBy('timestamp', 'desc').get();
+      feedbacks = snapshot.docs.map(doc => doc.data());
+    } else {
+      console.log('⚠️ Firebase not available, showing empty feedback dashboard');
+    }
 
     // Now use feedbacks in your HTML rendering
     const html = `

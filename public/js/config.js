@@ -34,8 +34,8 @@ const CONFIG = {
   ],
   
   // File Transfer Settings - Optimized for Maximum Speed
-  CHUNK_SIZE: 256 * 1024, // 256KB chunks (increased for maximum throughput)
-  MAX_BUFFERED_AMOUNT: 8 * 1024 * 1024, // 8MB buffer limit (increased for maximum flow)
+  CHUNK_SIZE: 128 * 1024, // 128KB chunks (reduced for better responsiveness)
+  MAX_BUFFERED_AMOUNT: 4 * 1024 * 1024, // 4MB buffer limit (reduced for better flow control)
   MAX_SIGNALING_DATA_SIZE: 10000, // 10KB max signaling data
   
   // Performance Settings - Optimized for Maximum Speed
@@ -63,6 +63,7 @@ const CONFIG = {
     sendBtn: 'sendBtn',
     recvBtn: 'recvBtn',
     disconnectBtn: 'disconnectBtn',
+    resetBtn: 'resetBtn',
     progressSection: 'progressSection',
     progressText: 'progressText',
     progressPercent: 'progressPercent',
