@@ -470,251 +470,252 @@ app.get('/api/feedback', requireAuth, async (req, res) => {
 });
 
 // Feedback dashboard endpoint (protected)
-app.get('/admin/feedback', requireAuth, (req, res) => {
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShareP2P - Feedback Dashboard</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #533483 100%);
-      min-height: 100vh;
-      padding: 20px;
-      color: white;
-    }
-    
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(20px);
-      border-radius: 24px;
-      padding: 32px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .header {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    
-    .header h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 8px;
-    }
-    
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 32px;
-    }
-    
-    .stat-card {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 20px;
-      border-radius: 16px;
-      text-align: center;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    
-    .stat-number {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #86efac;
-    }
-    
-    .stat-label {
-      font-size: 0.9rem;
-      color: rgba(255, 255, 255, 0.7);
-      margin-top: 4px;
-    }
-    
-    .feedback-list {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    
-    .feedback-item {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 16px;
-      padding: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.3s ease;
-    }
-    
-    .feedback-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-      transform: translateY(-2px);
-    }
-    
-    .feedback-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    
-    .feedback-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    
-    .feedback-name {
-      font-weight: 600;
-      color: #86efac;
-    }
-    
-    .feedback-email {
-      font-size: 0.9rem;
-      color: rgba(255, 255, 255, 0.6);
-    }
-    
-    .feedback-type {
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .feedback-type.suggestion { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
-    .feedback-type.bug { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
-    .feedback-type.feature { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
-    .feedback-type.general { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-    
-    .feedback-time {
-      font-size: 0.8rem;
-      color: rgba(255, 255, 255, 0.5);
-    }
-    
-    .feedback-message {
-      color: rgba(255, 255, 255, 0.9);
-      line-height: 1.6;
-      margin-top: 12px;
-    }
-    
-    .feedback-ip {
-      font-size: 0.8rem;
-      color: rgba(255, 255, 255, 0.4);
-      margin-top: 8px;
-    }
-    
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: rgba(255, 255, 255, 0.6);
-    }
-    
-    .empty-state h3 {
-      font-size: 1.5rem;
-      margin-bottom: 12px;
-    }
-    
-    .refresh-btn {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      margin-bottom: 20px;
-    }
-    
-    .refresh-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-    }
-    
-    @media (max-width: 768px) {
-      .container { padding: 20px; }
-      .header h1 { font-size: 2rem; }
-      .feedback-header { flex-direction: column; align-items: flex-start; }
-      .stats { grid-template-columns: 1fr; }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>📝 Feedback Dashboard</h1>
-      <p>ShareP2P User Feedback Management</p>
-    </div>
-    
-    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
-      <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
-      <a href="/admin/logout" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
-        🚪 Logout
-      </a>
-    </div>
-    
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-number">${feedbacks.length}</div>
-        <div class="stat-label">Total Feedback</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">${feedbacks.filter(f => f.type === 'suggestion').length}</div>
-        <div class="stat-label">Suggestions</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">${feedbacks.filter(f => f.type === 'bug').length}</div>
-        <div class="stat-label">Bug Reports</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">${feedbacks.filter(f => f.type === 'feature').length}</div>
-        <div class="stat-label">Feature Requests</div>
-      </div>
-    </div>
-    
-    <div class="feedback-list">
-      ${feedbacks.length === 0 ? `
-        <div class="empty-state">
-          <h3>📭 No feedback yet</h3>
-          <p>When users submit feedback through your app, it will appear here.</p>
-        </div>
-      ` : feedbacks.map(feedback => `
-        <div class="feedback-item">
-          <div class="feedback-header">
-            <div class="feedback-meta">
-              <div class="feedback-name">${feedback.name}</div>
-              <div class="feedback-email">${feedback.email}</div>
-            </div>
-            <div class="feedback-type ${feedback.type}">${feedback.type}</div>
+app.get('/admin/feedback', requireAuth, async (req, res) => {
+  try {
+    // Fetch feedbacks from Firestore
+    const snapshot = await feedbackCollection.orderBy('timestamp', 'desc').get();
+    const feedbacks = snapshot.docs.map(doc => doc.data());
+
+    // Now use feedbacks in your HTML rendering
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ShareP2P - Feedback Dashboard</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #533483 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+          }
+          
+          .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          
+          .header {
+            text-align: center;
+            margin-bottom: 32px;
+          }
+          
+          .header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+          }
+          
+          .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+          }
+          
+          .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          
+          .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #86efac;
+          }
+          
+          .stat-label {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 4px;
+          }
+          
+          .feedback-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+          }
+          
+          .feedback-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+          }
+          
+          .feedback-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+          }
+          
+          .feedback-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+          
+          .feedback-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          
+          .feedback-name {
+            font-weight: 600;
+            color: #86efac;
+          }
+          
+          .feedback-email {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+          }
+          
+          .feedback-type {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .feedback-type.suggestion { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+          .feedback-type.bug { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+          .feedback-type.feature { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+          .feedback-type.general { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+          
+          .feedback-time {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+          }
+          
+          .feedback-message {
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.6;
+            margin-top: 12px;
+          }
+          
+          .feedback-ip {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 8px;
+          }
+          
+          .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: rgba(255, 255, 255, 0.6);
+          }
+          
+          .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+          }
+          
+          .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+          }
+          
+          .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+          }
+          
+          @media (max-width: 768px) {
+            .container { padding: 20px; }
+            .header h1 { font-size: 2rem; }
+            .feedback-header { flex-direction: column; align-items: flex-start; }
+            .stats { grid-template-columns: 1fr; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>📝 Feedback Dashboard</h1>
+            <p>ShareP2P User Feedback Management</p>
           </div>
-          <div class="feedback-time">${new Date(feedback.timestamp).toLocaleString()}</div>
-          <div class="feedback-message">${feedback.message}</div>
-          <div class="feedback-ip">IP: ${feedback.ip}</div>
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
+            <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+            <a href="/admin/logout" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+              🚪 Logout
+            </a>
+          </div>
+          <div class="stats">
+            <div class="stat-card">
+              <div class="stat-number">${feedbacks.length}</div>
+              <div class="stat-label">Total Feedback</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">${feedbacks.filter(f => f.type === 'suggestion').length}</div>
+              <div class="stat-label">Suggestions</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">${feedbacks.filter(f => f.type === 'bug').length}</div>
+              <div class="stat-label">Bug Reports</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">${feedbacks.filter(f => f.type === 'feature').length}</div>
+              <div class="stat-label">Feature Requests</div>
+            </div>
+          </div>
+          <div class="feedback-list">
+            ${feedbacks.map(feedback => `
+              <div class="feedback-item">
+                <div class="feedback-header">
+                  <div class="feedback-meta">
+                    <div class="feedback-name">${feedback.name}</div>
+                    <div class="feedback-email">${feedback.email}</div>
+                  </div>
+                  <div class="feedback-type ${feedback.type}">${feedback.type}</div>
+                </div>
+                <div class="feedback-time">${new Date(feedback.timestamp).toLocaleString()}</div>
+                <div class="feedback-message">${feedback.message}</div>
+                <div class="feedback-ip">IP: ${feedback.ip}</div>
+              </div>
+            `).join('')}
+          </div>
         </div>
-      `).reverse().join('')}
-    </div>
-  </div>
-</body>
-</html>
-  `;
-  
-  res.send(html);
+      </body>
+      </html>
+    `;
+    res.send(html);
+  } catch (error) {
+    console.error('❌ Error fetching feedback:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 // Store connected devices and their connections
