@@ -154,17 +154,23 @@ class SocketManager {
     if (!this.isConnected) {
       throw new Error('Socket not connected');
     }
-    
+    if (!to) {
+      console.error('sendSignal: peerId (to) is undefined', { data });
+      return;
+    }
+    if (!data) {
+      console.error('sendSignal: data is undefined', { to });
+      return;
+    }
     if (!Utils.validateDeviceId(to)) {
       throw new Error('Invalid target device ID');
     }
-    
     // Check data size
     const dataSize = JSON.stringify(data).length;
     if (dataSize > this.config.MAX_SIGNALING_DATA_SIZE) {
       throw new Error('Signaling data too large');
     }
-    
+    console.log('sendSignal: sending signal', { to, data });
     this.socket.emit('signal', { to, data });
   }
 
