@@ -339,12 +339,28 @@ class P2PFileSharing {
           
           // Check buffer state before sending
           if (this.webrtcManager.dc && this.webrtcManager.dc.bufferedAmount > this.config.MAX_BUFFERED_AMOUNT * 0.8) {
-            console.log('⏳ Buffer getting full, waiting...', this.webrtcManager.dc.bufferedAmount);
-            await new Promise(resolve => setTimeout(resolve, 50));
+            console.log('⏳ Buffer getting full, waiting...', this.webrtcManager.dc.bufferedAmount, 'max:', this.config.MAX_BUFFERED_AMOUNT);
+            // Wait for buffer to clear with timeout
+            const startWait = Date.now();
+            while (this.webrtcManager.dc.bufferedAmount > this.config.MAX_BUFFERED_AMOUNT * 0.6 && (Date.now() - startWait) < 5000) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            if (this.webrtcManager.dc.bufferedAmount > this.config.MAX_BUFFERED_AMOUNT * 0.6) {
+              console.warn('⚠️ Buffer still full after timeout, continuing anyway');
+            }
           }
           
           await this.webrtcManager.sendData(arrayBuffer);
           offset += arrayBuffer.byteLength;
+          
+          // Log buffer state periodically
+          if (offset % (this.config.CHUNK_SIZE * 10) === 0) {
+            console.log('📊 Buffer state:', {
+              bufferedAmount: this.webrtcManager.dc?.bufferedAmount || 0,
+              maxBuffer: this.config.MAX_BUFFERED_AMOUNT,
+              progress: Math.round((offset / file.size) * 100) + '%'
+            });
+          }
           
           // More frequent delays to prevent overwhelming the buffer
           if (offset % (this.config.CHUNK_SIZE * 2) === 0) {
@@ -371,6 +387,15 @@ class P2PFileSharing {
         console.error('❌ Error sending chunk:', error);
         throw error;
       }
+    }
+    
+    // Send EOF message to indicate file completion
+    try {
+      await this.webrtcManager.sendData(JSON.stringify({ type: 'EOF' }));
+      console.log('📤 Sent EOF message for file:', file.name);
+    } catch (error) {
+      console.error('❌ Failed to send EOF message:', error);
+      throw error;
     }
     
     console.log('✅ File sent completely:', file.name);
@@ -401,6 +426,13 @@ class P2PFileSharing {
       if (e.data === '{"type":"EOF"}' || (e.data.startsWith('{') && e.data.includes('"type":"EOF"'))) {
         console.log('📥 EOF message received');
         this.fileTransferState.eofReceived = true;
+        
+        // Clear the EOF timeout
+        if (this.fileTransferState.eofTimeout) {
+          clearTimeout(this.fileTransferState.eofTimeout);
+          this.fileTransferState.eofTimeout = null;
+        }
+        
         // Only finalize if receivedSize matches fileSize
         if (this.fileTransferState.receivedSize === this.fileTransferState.fileSize) {
           this.finalizeReceivedFile();
@@ -428,6 +460,15 @@ class P2PFileSharing {
         this.fileTransferState.lastTime = performance.now();
         this.fileTransferState.lastBytes = 0;
         this.fileTransferState.speedMbps = 0;
+        this.fileTransferState.eofReceived = false;
+        
+        // Set a timeout to finalize the file if EOF doesn't arrive
+        this.fileTransferState.eofTimeout = setTimeout(() => {
+          if (this.fileTransferState.receivedSize === this.fileTransferState.fileSize && !this.fileTransferState.eofReceived) {
+            console.log('⏰ EOF timeout reached, finalizing file without EOF');
+            this.finalizeReceivedFile();
+          }
+        }, 10000); // 10 second timeout
         
         console.log('📥 Starting to receive file:', meta.name, 'size:', meta.size);
         this.uiManager.showProgress(
@@ -441,7 +482,7 @@ class P2PFileSharing {
       
     } else {
       // Binary data
-      console.log('📥 Received file chunk, size:', e.data.byteLength);
+      console.log('📥 Received file chunk, size:', e.data.byteLength, 'total received:', this.fileTransferState.receivedSize + e.data.byteLength, 'expected:', this.fileTransferState.fileSize);
       this.fileTransferState.buffer.push(e.data);
       this.fileTransferState.receivedSize += e.data.byteLength;
       
@@ -464,6 +505,7 @@ class P2PFileSharing {
       );
       
       if (this.fileTransferState.receivedSize === this.fileTransferState.fileSize) {
+        console.log('📥 File size reached, waiting for EOF. Received:', this.fileTransferState.receivedSize, 'Expected:', this.fileTransferState.fileSize, 'EOF received:', this.fileTransferState.eofReceived);
         if (this.fileTransferState.eofReceived) {
           this.finalizeReceivedFile();
         }
@@ -618,6 +660,12 @@ class P2PFileSharing {
   }
 
   finalizeReceivedFile() {
+    // Clear the EOF timeout
+    if (this.fileTransferState.eofTimeout) {
+      clearTimeout(this.fileTransferState.eofTimeout);
+      this.fileTransferState.eofTimeout = null;
+    }
+    
     const blob = new Blob(this.fileTransferState.buffer);
     this.fileTransferState.buffer = null;
     const url = URL.createObjectURL(blob);
