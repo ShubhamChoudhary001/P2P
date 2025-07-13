@@ -52,4 +52,41 @@ public/
 
 ---
 
+## 🔐 Admin Dashboard
+
+The application includes a password-protected admin dashboard for viewing user feedback.
+
+### Setup Instructions:
+
+1. **Create Environment File:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Set Admin Credentials:**
+   Edit `.env` file and set your secure password:
+   ```
+   ADMIN_PASSWORD=your_secure_password_here
+   ADMIN_USERNAME=admin
+   ```
+
+3. **Access Admin Dashboard:**
+   - **Login:** `https://your-domain.com/admin/login`
+   - **Dashboard:** `https://your-domain.com/admin/feedback`
+
+### Security Features:
+- ✅ Password-protected admin access
+- ✅ Session-based authentication
+- ✅ Environment variable configuration
+- ✅ Secure cookie handling
+- ✅ Auto-logout after 24 hours
+
+### Default Credentials:
+- **Username:** `admin`
+- **Password:** Set in `.env` file
+
+**⚠️ Important:** Never commit your `.env` file to version control!
+
+---
+
 **For any image or SVG, just place it in `public/src/` and reference it as `/src/filename` in your HTML!** 

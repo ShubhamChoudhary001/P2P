@@ -65,6 +65,7 @@
     <div class="madeby">
       <p>Made by SHU-RY</p>
       <p>Version 1.0.0</p>
+      <a href="/admin/feedback" class="admin-link" style="font-size: 0.8rem; color: rgba(255,255,255,0.3); text-decoration: none; margin-top: 8px; display: inline-block;">📊 Admin Dashboard</a>
     </div>
     <div class="social-links">
       <a href="https://www.linkedin.com/in/shubham-choudhary-009345248" target="_blank" rel="noopener" class="social-link linkedin">
@@ -92,6 +93,60 @@
         <span class="icon">⬇️</span>Download File
       </a>
     </div>
+
+    <!-- Feedback Section -->
+    <div class="feedback-section">
+      <h3>💬 Send Feedback</h3>
+      <p class="feedback-subtitle">Help us improve ShareP2P! Share your thoughts, suggestions, or report issues.</p>
+      
+      <form id="feedbackForm" class="feedback-form" aria-label="Feedback form">
+        <div class="form-group">
+          <label for="feedbackName" class="sr-only">Name</label>
+          <input type="text" id="feedbackName" name="name" placeholder="Your name (optional)" maxlength="50" aria-describedby="nameHelp">
+          <div id="nameHelp" class="sr-only">Enter your name if you'd like us to respond to you</div>
+        </div>
+        <div class="form-group">
+          <label for="feedbackEmail" class="sr-only">Email</label>
+          <input type="email" id="feedbackEmail" name="email" placeholder="Your email (optional)" maxlength="100" aria-describedby="emailHelp">
+          <div id="emailHelp" class="sr-only">Enter your email if you'd like us to respond to you</div>
+        </div>
+        <div class="form-group">
+          <label for="feedbackType" class="sr-only">Feedback Type</label>
+          <select id="feedbackType" name="type" required aria-describedby="typeHelp">
+            <option value="">Select feedback type</option>
+            <option value="suggestion">💡 Suggestion</option>
+            <option value="bug">🐛 Bug Report</option>
+            <option value="feature">✨ Feature Request</option>
+            <option value="general">💭 General Feedback</option>
+          </select>
+          <div id="typeHelp" class="sr-only">Choose the type of feedback you're providing</div>
+        </div>
+        <div class="form-group">
+          <label for="feedbackMessage" class="sr-only">Message</label>
+          <textarea id="feedbackMessage" name="message" placeholder="Tell us what you think..." required maxlength="1000" rows="4" aria-describedby="messageHelp charCount"></textarea>
+          <div class="char-count">
+            <span id="charCount" aria-live="polite">0</span>/1000
+          </div>
+          <div id="messageHelp" class="sr-only">Enter your feedback message (required)</div>
+        </div>
+        <button type="submit" id="feedbackSubmit" class="btn btn-feedback" aria-describedby="submitHelp">
+          <span class="icon">📤</span>Send Feedback
+        </button>
+        <div id="submitHelp" class="sr-only">Click to submit your feedback</div>
+      </form>
+      
+      <div id="feedbackSuccess" class="feedback-success hidden">
+        <div class="success-icon">✅</div>
+        <h4>Thank you!</h4>
+        <p>Your feedback has been sent successfully. We'll review it and get back to you if needed.</p>
+      </div>
+      
+      <div id="feedbackError" class="feedback-error hidden">
+        <div class="error-icon">❌</div>
+        <h4>Oops!</h4>
+        <p id="errorMessage">Something went wrong. Please try again.</p>
+      </div>
+    </div>
   </div>
  
 
@@ -118,6 +173,7 @@
   <script src="js/webrtc-manager.js"></script>
   <script src="js/socket-manager.js"></script>
   <script src="js/ui-manager.js"></script>
+  <script src="js/feedback-manager.js"></script>
   <script src="js/app.js"></script>
   <script>
   window.addEventListener('DOMContentLoaded', function() {

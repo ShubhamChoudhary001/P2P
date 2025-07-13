@@ -20,6 +20,44 @@ class WebRTCManager {
   }
 
   /**
+   * Create optimized ICE configuration for local network
+   * @returns {Object} ICE configuration
+   */
+  createOptimizedIceConfig() {
+    const isLocalNetwork = this.detectLocalNetwork();
+    
+    if (isLocalNetwork) {
+      console.log('🏠 Using local network optimized ICE configuration');
+      return {
+        iceServers: [
+          // Minimal STUN for local network
+          { urls: 'stun:stun.l.google.com:19302' },
+          // Force local network candidates
+          { urls: 'stun:0.0.0.0:3478' }
+        ],
+        iceCandidatePoolSize: 10,
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
+        iceTransportPolicy: 'all', // Allow all for local network
+        iceConnectionReceivingTimeout: 3000, // Faster timeout
+        iceBackupCandidatePairPct: 0.5
+      };
+    } else {
+      console.log('🌍 Using standard ICE configuration');
+      return {
+        iceServers: this.config.ICE_SERVERS,
+        iceCandidatePoolSize: 20,
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
+        iceTransportPolicy: 'all',
+        iceConnectionReceivingTimeout: 5000,
+        iceBackupCandidatePairPct: 0.7,
+        sdpSemantics: 'unified-plan'
+      };
+    }
+  }
+
+  /**
    * Initialize WebRTC peer connection
    * @param {boolean} isSender - Whether this peer is the sender
    */
@@ -29,19 +67,29 @@ class WebRTCManager {
     // Store the sender state
     this.isSender = isSender;
     
+    // Detect if we're on local network
+    const isLocalNetwork = this.detectLocalNetwork();
+    console.log('🌐 Local network detected:', isLocalNetwork);
+    
+    // Get optimized ICE configuration
+    const iceConfig = this.createOptimizedIceConfig();
+    
     // Optimized RTCPeerConnection configuration for maximum speed
-    this.pc = new RTCPeerConnection({ 
-      iceServers: this.config.ICE_SERVERS,
-      iceCandidatePoolSize: 20, // Increased for better candidate gathering
-      bundlePolicy: 'max-bundle', // Bundle all media
-      rtcpMuxPolicy: 'require', // Require RTCP multiplexing
-      iceTransportPolicy: 'all', // Use all ICE candidates
-      // Optimizations for local network transfers
-      iceConnectionReceivingTimeout: 5000, // Faster timeout for local connections
-      iceBackupCandidatePairPct: 0.7, // More aggressive backup candidate usage
-      // Bandwidth optimizations
-      sdpSemantics: 'unified-plan' // Use unified plan for better bandwidth management
-    });
+    this.pc = new RTCPeerConnection(iceConfig);
+    
+    // Filter ICE candidates for local network optimization
+    this.pc.onicecandidate = ({ candidate }) => {
+      if (candidate) {
+        // Filter candidates for local network priority
+        if (isLocalNetwork && this.isLocalCandidate(candidate)) {
+          console.log('🏠 Local candidate found:', candidate.address);
+        }
+        console.log('Sending ICE candidate');
+        if (this.onIceCandidate) {
+          this.onIceCandidate(candidate);
+        }
+      }
+    };
     
     if (isSender) {
       // Optimized data channel configuration for maximum speed
@@ -63,15 +111,6 @@ class WebRTCManager {
     }
 
     // Set up event handlers
-    this.pc.onicecandidate = ({ candidate }) => {
-      if (candidate) {
-        console.log('Sending ICE candidate');
-        if (this.onIceCandidate) {
-          this.onIceCandidate(candidate);
-        }
-      }
-    };
-
     this.pc.onconnectionstatechange = () => {
       console.log('Connection state:', this.pc.connectionState);
       if (this.onConnectionStateChange) {
@@ -110,6 +149,23 @@ class WebRTCManager {
     
     this.dc.onopen = () => {
       console.log('Data channel open');
+      
+      // Start performance monitoring
+      this.startPerformanceMonitoring();
+      
+      // Get connection diagnostics
+      setTimeout(() => {
+        this.getDetailedStats().then(stats => {
+          if (!stats.error) {
+            console.log('🚀 Connection established with:', {
+              type: stats.selectedCandidate ? 'Direct Connection' : 'Relay Connection',
+              localNetwork: stats.isLocalNetwork ? 'Yes' : 'No',
+              candidates: stats.candidates.length
+            });
+          }
+        });
+      }, 1000);
+      
       if (this.onDataChannelOpen) {
         this.onDataChannelOpen(isSender);
       }
@@ -127,6 +183,7 @@ class WebRTCManager {
 
     this.dc.onclose = () => {
       console.log('Data channel closed');
+      this.stopPerformanceMonitoring();
     };
     
     // Optimized buffer management
@@ -548,6 +605,97 @@ class WebRTCManager {
   }
 
   /**
+   * Perform a speed test to measure actual transfer speed
+   * @param {number} testSize - Size of test data in bytes (default: 1MB)
+   * @returns {Promise<Object>} Speed test results
+   */
+  async performSpeedTest(testSize = 1024 * 1024) {
+    if (!this.dc || this.dc.readyState !== 'open') {
+      throw new Error('Data channel not ready');
+    }
+
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      const chunkSize = 64 * 1024; // 64KB chunks for testing
+      let bytesSent = 0;
+      let chunksSent = 0;
+
+      const sendTestChunk = () => {
+        if (bytesSent >= testSize) {
+          const endTime = Date.now();
+          const duration = (endTime - startTime) / 1000; // seconds
+          const speedMbps = (bytesSent * 8) / (duration * 1024 * 1024); // Mbps
+          
+          console.log('📊 Speed Test Results:', {
+            bytesSent,
+            duration: `${duration.toFixed(2)}s`,
+            speed: `${speedMbps.toFixed(2)} Mbps`,
+            chunksSent
+          });
+          
+          resolve({
+            bytesSent,
+            duration,
+            speedMbps,
+            chunksSent
+          });
+          return;
+        }
+
+        const remainingBytes = testSize - bytesSent;
+        const currentChunkSize = Math.min(chunkSize, remainingBytes);
+        
+        // Create test data
+        const testData = new ArrayBuffer(currentChunkSize);
+        
+        try {
+          this.dc.send(testData);
+          bytesSent += currentChunkSize;
+          chunksSent++;
+          
+          // Continue immediately for maximum speed
+          setTimeout(sendTestChunk, 0);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      // Start the test
+      sendTestChunk();
+    });
+  }
+
+  /**
+   * Get connection speed recommendations
+   * @returns {Object} Speed recommendations
+   */
+  getSpeedRecommendations() {
+    const isLocalNetwork = this.detectLocalNetwork();
+    
+    if (isLocalNetwork) {
+      return {
+        expectedSpeed: '30-100 Mbps',
+        recommendations: [
+          'Use direct local network connection',
+          'Check firewall settings',
+          'Ensure both devices are on same WiFi',
+          'Try disabling VPN if active',
+          'Check router QoS settings'
+        ]
+      };
+    } else {
+      return {
+        expectedSpeed: '5-20 Mbps',
+        recommendations: [
+          'Connection is going through internet',
+          'Speed limited by internet connection',
+          'Consider using local network for faster transfers'
+        ]
+      };
+    }
+  }
+
+  /**
    * Reset the peer connection to stable state
    */
   async resetConnection() {
@@ -676,6 +824,143 @@ class WebRTCManager {
       console.error('Error getting stats:', error);
       return null;
     }
+  }
+  
+  /**
+   * Get detailed connection statistics
+   * @returns {Promise<Object>} Connection stats
+   */
+  async getDetailedStats() {
+    if (!this.pc) {
+      return { error: 'No peer connection' };
+    }
+
+    try {
+      const stats = await this.pc.getStats();
+      const connectionInfo = {
+        connectionState: this.pc.connectionState,
+        iceConnectionState: this.pc.iceConnectionState,
+        signalingState: this.pc.signalingState,
+        candidates: [],
+        selectedCandidate: null,
+        isLocalNetwork: this.detectLocalNetwork()
+      };
+
+      stats.forEach(report => {
+        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+          connectionInfo.selectedCandidate = {
+            local: report.localCandidateId,
+            remote: report.remoteCandidateId,
+            state: report.state
+          };
+        }
+        if (report.type === 'local-candidate' || report.type === 'remote-candidate') {
+          connectionInfo.candidates.push({
+            type: report.type,
+            address: report.address,
+            port: report.port,
+            protocol: report.protocol,
+            candidateType: report.candidateType
+          });
+        }
+      });
+
+      console.log('🔍 Connection Diagnostics:', connectionInfo);
+      return connectionInfo;
+    } catch (error) {
+      console.error('Error getting stats:', error);
+      return { error: error.message };
+    }
+  }
+
+  /**
+   * Monitor connection performance
+   */
+  startPerformanceMonitoring() {
+    if (!this.dc) return;
+    
+    let lastBytesReceived = 0;
+    let lastTime = Date.now();
+    
+    const monitor = setInterval(() => {
+      if (this.dc.readyState !== 'open') {
+        clearInterval(monitor);
+        return;
+      }
+      
+      // Get current stats
+      this.getDetailedStats().then(stats => {
+        if (stats.error) return;
+        
+        // Calculate transfer speed if we have data
+        const currentTime = Date.now();
+        const timeDiff = (currentTime - lastTime) / 1000; // seconds
+        
+        if (timeDiff > 0) {
+          // Note: WebRTC doesn't expose bytes transferred directly
+          // This is a simplified monitoring approach
+          console.log('📊 Connection Performance:', {
+            connectionType: stats.selectedCandidate ? 'Direct' : 'Relay',
+            localNetwork: stats.isLocalNetwork,
+            connectionState: stats.connectionState,
+            iceState: stats.iceConnectionState
+          });
+        }
+        
+        lastTime = currentTime;
+      });
+    }, 2000); // Check every 2 seconds
+    
+    this.performanceMonitor = monitor;
+  }
+
+  /**
+   * Stop performance monitoring
+   */
+  stopPerformanceMonitoring() {
+    if (this.performanceMonitor) {
+      clearInterval(this.performanceMonitor);
+      this.performanceMonitor = null;
+    }
+  }
+
+  /**
+   * Detect if we're on a local network
+   * @returns {boolean} True if on local network
+   */
+  detectLocalNetwork() {
+    try {
+      const hostname = window.location.hostname;
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+      
+      // Check if we're accessing via local IP
+      const isLocalIP = /^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+      
+      return isLocalhost || isLocalIP;
+    } catch (error) {
+      console.log('Could not detect local network:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Check if ICE candidate is local
+   * @param {RTCIceCandidate} candidate - ICE candidate
+   * @returns {boolean} True if local candidate
+   */
+  isLocalCandidate(candidate) {
+    if (!candidate.address) return false;
+    
+    // Check for local network IPs
+    const localPatterns = [
+      /^192\.168\./,
+      /^10\./,
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+      /^127\./,
+      /^localhost$/
+    ];
+    
+    return localPatterns.some(pattern => pattern.test(candidate.address));
   }
 }
 

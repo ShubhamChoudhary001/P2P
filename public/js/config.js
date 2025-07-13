@@ -16,7 +16,7 @@ const CONFIG = {
   
   // WebRTC Configuration
   ICE_SERVERS: [
-    // STUN servers for NAT traversal (free)
+    // Reliable STUN servers for cloud deployment
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
@@ -72,7 +72,18 @@ const CONFIG = {
     connectionModal: 'connectionModal',
     deviceIdInput: 'deviceIdInput',
     connectBtn: 'connectBtn',
-    cancelBtn: 'cancelBtn'
+    cancelBtn: 'cancelBtn',
+    // Feedback elements
+    feedbackForm: 'feedbackForm',
+    feedbackName: 'feedbackName',
+    feedbackEmail: 'feedbackEmail',
+    feedbackType: 'feedbackType',
+    feedbackMessage: 'feedbackMessage',
+    feedbackSubmit: 'feedbackSubmit',
+    feedbackSuccess: 'feedbackSuccess',
+    feedbackError: 'feedbackError',
+    errorMessage: 'errorMessage',
+    charCount: 'charCount'
   }
 };
 
