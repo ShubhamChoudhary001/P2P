@@ -250,9 +250,12 @@ class P2PFileSharing {
     this.webrtcManager.initializePeerConnection(isSender);
     
     if (isSender) {
+      console.log('🔄 About to call createOffer...');
       this.webrtcManager.createOffer()
         .then(offer => {
+          console.log('🔄 createOffer returned:', offer);
           if (offer !== undefined && offer !== null) {
+            console.log('✅ Sending valid offer to peer');
             this.socketManager.sendSignal(this.peerId, offer);
           } else {
             console.error('startFileTransfer: Tried to send undefined offer', { peerId: this.peerId, offer });
@@ -260,7 +263,7 @@ class P2PFileSharing {
           }
         })
         .catch(error => {
-          console.error('Error creating offer:', error);
+          console.error('❌ Error creating offer:', error);
           this.uiManager.showError('Failed to create connection');
         });
     }
