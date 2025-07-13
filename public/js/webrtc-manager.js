@@ -29,21 +29,29 @@ class WebRTCManager {
     // Store the sender state
     this.isSender = isSender;
     
-    // Optimized RTCPeerConnection configuration for speed
+    // Optimized RTCPeerConnection configuration for maximum speed
     this.pc = new RTCPeerConnection({ 
       iceServers: this.config.ICE_SERVERS,
-      iceCandidatePoolSize: 10, // Increase ICE candidate pool
+      iceCandidatePoolSize: 20, // Increased for better candidate gathering
       bundlePolicy: 'max-bundle', // Bundle all media
       rtcpMuxPolicy: 'require', // Require RTCP multiplexing
-      iceTransportPolicy: 'all' // Use all ICE candidates
+      iceTransportPolicy: 'all', // Use all ICE candidates
+      // Optimizations for local network transfers
+      iceConnectionReceivingTimeout: 5000, // Faster timeout for local connections
+      iceBackupCandidatePairPct: 0.7, // More aggressive backup candidate usage
+      // Bandwidth optimizations
+      sdpSemantics: 'unified-plan' // Use unified plan for better bandwidth management
     });
     
     if (isSender) {
-      // Optimized data channel configuration for speed
+      // Optimized data channel configuration for maximum speed
       this.dc = this.pc.createDataChannel('file', {
         ordered: true, // Ensure ordered delivery
-        maxRetransmits: 3, // Allow some retransmissions for reliability
-        priority: 'high' // High priority for file transfer
+        maxRetransmits: 1, // Minimal retransmissions for speed
+        priority: 'high', // High priority for file transfer
+        // Optimizations for high-speed transfers
+        negotiated: false, // Let WebRTC handle negotiation
+        id: 0 // Use first available ID
       });
       this.setupDataChannel(true);
     } else {
@@ -95,6 +103,11 @@ class WebRTCManager {
     
     this.dc.binaryType = 'arraybuffer';
     
+    // Optimize data channel for speed
+    if (this.dc.setBufferedAmountLowThreshold) {
+      this.dc.setBufferedAmountLowThreshold(this.config.MAX_BUFFERED_AMOUNT * 0.3);
+    }
+    
     this.dc.onopen = () => {
       console.log('Data channel open');
       if (this.onDataChannelOpen) {
@@ -114,6 +127,14 @@ class WebRTCManager {
 
     this.dc.onclose = () => {
       console.log('Data channel closed');
+    };
+    
+    // Optimized buffer management
+    this.dc.onbufferedamountlow = () => {
+      // Trigger queue processing when buffer is low
+      if (this.sendQueue.length > 0 && !this.isSending) {
+        this.processQueue();
+      }
     };
   }
 
@@ -378,7 +399,7 @@ class WebRTCManager {
   }
   
   /**
-   * Process the send queue
+   * Process the send queue - Optimized for Maximum Speed
    */
   async processQueue() {
     if (this.isSending || this.sendQueue.length === 0) {
@@ -391,17 +412,17 @@ class WebRTCManager {
       const { data, resolve, reject } = this.sendQueue[0];
       
       try {
-        // Check buffer state
+        // Optimized buffer checking - less aggressive waiting
         const maxBuffer = this.config.MAX_BUFFERED_AMOUNT;
         const currentBuffer = this.dc.bufferedAmount;
         
-        if (currentBuffer > maxBuffer * 0.8) {
-          console.log('⏳ Buffer getting full, waiting... bufferedAmount:', currentBuffer, 'max:', maxBuffer);
+        if (currentBuffer > maxBuffer * 0.9) {
+          console.log('⏳ Buffer full, waiting... bufferedAmount:', currentBuffer, 'max:', maxBuffer);
           
-          // Wait for buffer to clear with optimized interval
+          // Wait for buffer to clear with faster checking
           await new Promise((resolveBuffer) => {
             const checkBuffer = () => {
-              if (this.dc.bufferedAmount <= maxBuffer * 0.5) {
+              if (this.dc.bufferedAmount <= maxBuffer * 0.6) {
                 resolveBuffer();
               } else {
                 setTimeout(checkBuffer, this.config.BUFFER_CHECK_INTERVAL);
@@ -420,15 +441,17 @@ class WebRTCManager {
         this.sendQueue.shift();
         resolve();
         
-        // Optimized delay between sends
-        await new Promise(resolve => setTimeout(resolve, this.config.QUEUE_PROCESSING_DELAY));
+        // Minimal delay for maximum speed
+        if (this.config.QUEUE_PROCESSING_DELAY > 0) {
+          await new Promise(resolve => setTimeout(resolve, this.config.QUEUE_PROCESSING_DELAY));
+        }
         
       } catch (error) {
         console.error('❌ Error sending data:', error);
         
         if (error.message.includes('send queue is full')) {
           console.log('🔄 Send queue full, waiting...');
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 50)); // Reduced wait time
           continue; // Try again
         } else {
           // Remove from queue and reject
@@ -443,7 +466,7 @@ class WebRTCManager {
   }
 
   /**
-   * Send file through data channel - Optimized for Speed
+   * Send file through data channel - Optimized for Maximum Speed
    * @param {File} file - File to send
    * @param {Function} onProgress - Progress callback
    */
@@ -459,6 +482,15 @@ class WebRTCManager {
       const chunkSize = this.config.CHUNK_SIZE;
       const maxBufferedAmount = this.config.MAX_BUFFERED_AMOUNT;
       let lastProgressUpdate = 0;
+      let isPaused = false;
+
+      // Send file metadata first
+      const metadata = JSON.stringify({ 
+        name: file.name, 
+        size: file.size,
+        type: file.type || 'application/octet-stream'
+      });
+      this.dc.send(metadata);
 
       const sendChunk = () => {
         if (offset >= file.size) {
@@ -466,10 +498,13 @@ class WebRTCManager {
           return;
         }
 
-        // Optimized buffer checking
-        if (this.dc.bufferedAmount > maxBufferedAmount * 0.9) {
+        // Check if we should pause due to buffer
+        if (this.dc.bufferedAmount > maxBufferedAmount * 0.8) {
+          isPaused = true;
+          // Use bufferedamountlow event for resuming
           this.dc.onbufferedamountlow = () => {
             this.dc.onbufferedamountlow = null;
+            isPaused = false;
             sendChunk();
           };
           return;
@@ -477,28 +512,37 @@ class WebRTCManager {
 
         const chunk = file.slice(offset, offset + chunkSize);
         reader.onload = (e) => {
-          this.dc.send(e.target.result);
-          offset += e.target.result.byteLength;
-          
-          // Optimized progress updates (less frequent for better performance)
-          if (onProgress && Date.now() - lastProgressUpdate > this.config.PROGRESS_UPDATE_INTERVAL) {
-            const progress = (offset / file.size) * 100;
-            onProgress(progress, offset, file.size);
-            lastProgressUpdate = Date.now();
-          }
-          
-          // Use requestAnimationFrame for better performance
-          if (offset < file.size) {
-            requestAnimationFrame(sendChunk);
-          } else {
-            resolve();
+          try {
+            this.dc.send(e.target.result);
+            offset += e.target.result.byteLength;
+            
+            // Progress updates
+            if (onProgress && Date.now() - lastProgressUpdate > this.config.PROGRESS_UPDATE_INTERVAL) {
+              const progress = (offset / file.size) * 100;
+              onProgress(progress, offset, file.size);
+              lastProgressUpdate = Date.now();
+            }
+            
+            // Continue sending immediately if not paused
+            if (!isPaused && offset < file.size) {
+              // Use immediate execution for maximum speed
+              sendChunk();
+            }
+          } catch (error) {
+            console.error('Error sending chunk:', error);
+            reject(error);
           }
         };
+        
+        reader.onerror = (error) => {
+          console.error('FileReader error:', error);
+          reject(error);
+        };
+        
         reader.readAsArrayBuffer(chunk);
       };
 
-      // Send file metadata first
-      this.dc.send(JSON.stringify({ name: file.name, size: file.size }));
+      // Start sending
       sendChunk();
     });
   }

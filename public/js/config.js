@@ -33,15 +33,15 @@ const CONFIG = {
     // }
   ],
   
-  // File Transfer Settings - Optimized for Speed
+  // File Transfer Settings - Optimized for Maximum Speed
   CHUNK_SIZE: 256 * 1024, // 256KB chunks (increased for maximum throughput)
   MAX_BUFFERED_AMOUNT: 8 * 1024 * 1024, // 8MB buffer limit (increased for maximum flow)
   MAX_SIGNALING_DATA_SIZE: 10000, // 10KB max signaling data
   
-  // Performance Settings
+  // Performance Settings - Optimized for Maximum Speed
   QUEUE_PROCESSING_DELAY: 0, // 0ms delay for maximum speed
-  BUFFER_CHECK_INTERVAL: 10, // 10ms buffer check interval (more responsive)
-  PROGRESS_UPDATE_INTERVAL: 100, // 100ms for more frequent progress updates
+  BUFFER_CHECK_INTERVAL: 5, // 5ms buffer check interval (ultra responsive)
+  PROGRESS_UPDATE_INTERVAL: 50, // 50ms for very frequent progress updates
   
   // UI Settings
   DEVICE_ID_LENGTH: 6,
