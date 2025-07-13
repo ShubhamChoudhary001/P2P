@@ -18,6 +18,10 @@ class WebRTCManager {
     this.sendQueue = [];
     this.isSending = false;
     this.isCreatingOffer = false;
+    
+    // Queue for ICE candidates (to handle timing issues)
+    this.iceCandidateQueue = [];
+    this.remoteDescriptionSet = false;
   }
 
   /**
@@ -304,6 +308,12 @@ class WebRTCManager {
       }
       
       await this.pc.setRemoteDescription(new RTCSessionDescription(offer));
+      console.log('✅ Remote description set successfully');
+      this.remoteDescriptionSet = true;
+      
+      // Process any queued ICE candidates
+      await this.processIceCandidateQueue();
+      
       const answer = await this.pc.createAnswer();
       await this.pc.setLocalDescription(answer);
       console.log('Created answer');
@@ -343,6 +353,11 @@ class WebRTCManager {
   async handleAnswer(answer) {
     try {
       await this.pc.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log('✅ Remote description set successfully');
+      this.remoteDescriptionSet = true;
+      
+      // Process any queued ICE candidates
+      await this.processIceCandidateQueue();
     } catch (error) {
       console.error('Error handling answer:', error);
       throw error;
@@ -360,10 +375,39 @@ class WebRTCManager {
         return;
       }
       
+      // If remote description hasn't been set yet, queue the candidate
+      if (!this.remoteDescriptionSet) {
+        console.log('⏳ Remote description not set yet, queuing ICE candidate');
+        this.iceCandidateQueue.push(candidate);
+        return;
+      }
+      
       await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+      console.log('✅ ICE candidate added successfully');
     } catch (error) {
       console.error('Error adding ICE candidate:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Process queued ICE candidates
+   */
+  async processIceCandidateQueue() {
+    if (this.iceCandidateQueue.length === 0) {
+      return;
+    }
+    
+    console.log(`🔄 Processing ${this.iceCandidateQueue.length} queued ICE candidates`);
+    
+    while (this.iceCandidateQueue.length > 0) {
+      const candidate = this.iceCandidateQueue.shift();
+      try {
+        await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log('✅ Queued ICE candidate added successfully');
+      } catch (error) {
+        console.error('❌ Error adding queued ICE candidate:', error);
+      }
     }
   }
 
@@ -416,6 +460,8 @@ class WebRTCManager {
     // Clear all queues and state
     this.sendQueue = [];
     this.isSending = false;
+    this.iceCandidateQueue = [];
+    this.remoteDescriptionSet = false;
     
     // Wait for complete cleanup
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -456,6 +502,10 @@ class WebRTCManager {
     
     // Close everything
     this.close();
+    
+    // Clear ICE candidate queue and state
+    this.iceCandidateQueue = [];
+    this.remoteDescriptionSet = false;
     
     // Wait for cleanup
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -828,6 +878,10 @@ class WebRTCManager {
     // Clear send queue
     this.sendQueue = [];
     this.isSending = false;
+    
+    // Clear ICE candidate queue and state
+    this.iceCandidateQueue = [];
+    this.remoteDescriptionSet = false;
   }
 
   /**
@@ -855,6 +909,8 @@ class WebRTCManager {
     this.isSender = false;
     this.sendQueue = [];
     this.isSending = false;
+    this.iceCandidateQueue = [];
+    this.remoteDescriptionSet = false;
     
     // Restore callbacks
     this.onIceCandidate = callbacks.onIceCandidate;
