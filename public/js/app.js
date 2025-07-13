@@ -245,6 +245,8 @@ class P2PFileSharing {
   startFileTransfer(isSender) {
     console.log(`Starting file transfer as ${isSender ? 'sender' : 'receiver'}`);
     
+    // Force reset the WebRTC connection to ensure stable state
+    this.webrtcManager.close();
     this.webrtcManager.initializePeerConnection(isSender);
     
     if (isSender) {
