@@ -31,7 +31,8 @@ class P2PFileSharing {
       buffer: [],
       lastTime: 0,
       lastBytes: 0,
-      speedMbps: 0
+      speedMbps: 0,
+      eofReceived: false // <-- add this flag
     };
     
     // File history for received files
@@ -391,24 +392,11 @@ class P2PFileSharing {
     // Handle EOF message
     if (typeof e.data === 'string') {
       if (e.data === '{"type":"EOF"}' || (e.data.startsWith('{') && e.data.includes('"type":"EOF"'))) {
-        // File complete (EOF received)
-        console.log('✅ EOF received, finalizing file:', this.fileTransferState.fileName);
-        const blob = new Blob(this.fileTransferState.buffer);
-        this.fileTransferState.buffer = null; // Free memory
-        const url = URL.createObjectURL(blob);
-        // Add to received files history
-        const receivedFile = {
-          name: this.fileTransferState.fileName,
-          size: this.fileTransferState.fileSize,
-          url: url,
-          timestamp: new Date().toISOString(),
-          id: Date.now() + Math.random().toString(36).substr(2, 9)
-        };
-        this.receivedFiles.push(receivedFile);
-        // Update the download section with all files
-        this.uiManager.updateReceivedFiles(this.receivedFiles);
-        this.uiManager.hideProgress();
-        this.uiManager.showSuccess(`File received: ${this.fileTransferState.fileName}`);
+        this.fileTransferState.eofReceived = true;
+        // Only finalize if receivedSize matches fileSize
+        if (this.fileTransferState.receivedSize === this.fileTransferState.fileSize) {
+          this.finalizeReceivedFile();
+        }
         return;
       }
       try {
@@ -467,27 +455,9 @@ class P2PFileSharing {
       );
       
       if (this.fileTransferState.receivedSize === this.fileTransferState.fileSize) {
-        // File complete
-        console.log('✅ File received completely:', this.fileTransferState.fileName);
-        const blob = new Blob(this.fileTransferState.buffer);
-        this.fileTransferState.buffer = null; // Free memory
-        const url = URL.createObjectURL(blob);
-        
-        // Add to received files history
-        const receivedFile = {
-          name: this.fileTransferState.fileName,
-          size: this.fileTransferState.fileSize,
-          url: url,
-          timestamp: new Date().toISOString(),
-          id: Date.now() + Math.random().toString(36).substr(2, 9)
-        };
-        
-        this.receivedFiles.push(receivedFile);
-        
-        // Update the download section with all files
-        this.uiManager.updateReceivedFiles(this.receivedFiles);
-        this.uiManager.hideProgress();
-        this.uiManager.showSuccess(`File received: ${this.fileTransferState.fileName}`);
+        if (this.fileTransferState.eofReceived) {
+          this.finalizeReceivedFile();
+        }
       }
     }
   }
@@ -636,6 +606,24 @@ class P2PFileSharing {
    */
   updateUI() {
     this.uiManager.updateUI(this.isConnected, this.currentFiles);
+  }
+
+  finalizeReceivedFile() {
+    const blob = new Blob(this.fileTransferState.buffer);
+    this.fileTransferState.buffer = null;
+    const url = URL.createObjectURL(blob);
+    const receivedFile = {
+      name: this.fileTransferState.fileName,
+      size: this.fileTransferState.fileSize,
+      url: url,
+      timestamp: new Date().toISOString(),
+      id: Date.now() + Math.random().toString(36).substr(2, 9)
+    };
+    this.receivedFiles.push(receivedFile);
+    this.uiManager.updateReceivedFiles(this.receivedFiles);
+    this.uiManager.hideProgress();
+    this.uiManager.showSuccess(`File received: ${this.fileTransferState.fileName}`);
+    this.fileTransferState.eofReceived = false;
   }
 }
 
