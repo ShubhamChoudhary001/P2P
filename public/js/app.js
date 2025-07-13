@@ -248,24 +248,26 @@ class P2PFileSharing {
     // Force reset the WebRTC connection to ensure stable state
     this.webrtcManager.close();
     this.webrtcManager.initializePeerConnection(isSender);
-    
+
     if (isSender) {
-      console.log('🔄 About to call createOffer...');
-      this.webrtcManager.createOffer()
-        .then(offer => {
-          console.log('🔄 createOffer returned:', offer);
-          if (offer !== undefined && offer !== null) {
-            console.log('✅ Sending valid offer to peer');
-            this.socketManager.sendSignal(this.peerId, offer);
-          } else {
-            console.error('startFileTransfer: Tried to send undefined offer', { peerId: this.peerId, offer });
-            this.uiManager.showError('Failed to create a valid offer for signaling.');
-          }
-        })
-        .catch(error => {
-          console.error('❌ Error creating offer:', error);
-          this.uiManager.showError('Failed to create connection');
-        });
+      setTimeout(() => {
+        console.log('🔄 About to call createOffer...');
+        this.webrtcManager.createOffer()
+          .then(offer => {
+            console.log('🔄 createOffer returned:', offer);
+            if (offer !== undefined && offer !== null) {
+              console.log('✅ Sending valid offer to peer');
+              this.socketManager.sendSignal(this.peerId, offer);
+            } else {
+              console.error('startFileTransfer: Tried to send undefined offer', { peerId: this.peerId, offer });
+              this.uiManager.showError('Failed to create a valid offer for signaling.');
+            }
+          })
+          .catch(error => {
+            console.error('❌ Error creating offer:', error);
+            this.uiManager.showError('Failed to create connection');
+          });
+      }, 150); // 150ms delay to allow connection to stabilize
     }
   }
 
