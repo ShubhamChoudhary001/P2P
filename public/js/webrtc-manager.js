@@ -207,6 +207,14 @@ class WebRTCManager {
     }
     this.isCreatingOffer = true;
     try {
+      console.log('🔄 Starting offer creation...');
+      console.log('🔍 Current state:', {
+        hasPC: !!this.pc,
+        signalingState: this.pc?.signalingState,
+        connectionState: this.pc?.connectionState,
+        iceConnectionState: this.pc?.iceConnectionState
+      });
+      
       // Check if we need a fresh connection
       if (!this.pc) {
         console.log('🔄 No peer connection, creating new one...');
@@ -215,33 +223,41 @@ class WebRTCManager {
         console.log('🔄 Signaling state not stable, resetting connection...');
         await this.resetConnection();
       }
+      
       // Only create offer if signalingState is stable
       if (this.pc.signalingState === 'stable') {
+        console.log('✅ Signaling state is stable, creating offer...');
         const offer = await this.pc.createOffer();
+        console.log('✅ Offer created successfully:', offer);
         await this.pc.setLocalDescription(offer);
+        console.log('✅ Local description set successfully');
         console.log('Created offer');
         return offer;
       } else {
-        console.warn('Signaling state not stable, skipping offer creation.');
+        console.warn('❌ Signaling state not stable, skipping offer creation. State:', this.pc.signalingState);
+        return undefined;
       }
     } catch (error) {
-      console.error('Error creating offer:', error);
+      console.error('❌ Error creating offer:', error);
       // Only recreate if it's a critical state error
       if (error.message.includes('SDP does not match') || error.message.includes('InvalidModificationError')) {
         console.log('🔄 Critical error detected, recreating connection...');
         await this.forceReset();
+        
         // Retry once with fresh connection
         try {
+          console.log('🔄 Retrying offer creation after reset...');
           if (this.pc.signalingState === 'stable') {
             const offer = await this.pc.createOffer();
             await this.pc.setLocalDescription(offer);
-            console.log('Created offer after reset');
+            console.log('✅ Created offer after reset');
             return offer;
           } else {
-            console.warn('Signaling state not stable after reset, skipping offer creation.');
+            console.warn('❌ Signaling state not stable after reset, skipping offer creation. State:', this.pc.signalingState);
+            return undefined;
           }
         } catch (retryError) {
-          console.error('Error creating offer after reset:', retryError);
+          console.error('❌ Error creating offer after reset:', retryError);
           throw retryError;
         }
       }
