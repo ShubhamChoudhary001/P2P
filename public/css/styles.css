@@ -23,6 +23,9 @@ body {
   padding: 20px;
   position: relative;
   overflow-x: hidden;
+  /* Force dark theme for Safari iOS */
+  color: #ffffff;
+  background-color: #0f0f23;
 }
 
 /* Animated background particles */
@@ -39,12 +42,43 @@ body::before {
     radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
   animation: float 20s ease-in-out infinite;
   z-index: -1;
+  /* Ensure background shows on Safari iOS */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
   33% { transform: translateY(-20px) rotate(120deg); }
   66% { transform: translateY(20px) rotate(240deg); }
+}
+
+/* Safari iOS specific fixes */
+@supports (-webkit-touch-callout: none) {
+  body {
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #533483 100%) !important;
+    background-color: #0f0f23 !important;
+    color: #ffffff !important;
+  }
+  
+  .container {
+    background: rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  }
+  
+  .device-info,
+  .download-section {
+    background: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(15px) !important;
+    -webkit-backdrop-filter: blur(15px) !important;
+  }
+  
+  .received-file-item {
+    background: rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
 }
 
 /* ========================================
@@ -54,13 +88,14 @@ body::before {
 .container {
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: 24px;
   padding: 48px;
   box-shadow: 
     0 25px 50px rgba(0, 0, 0, 0.25),
     0 0 0 1px rgba(255, 255, 255, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  max-width: 650px;
+  max-width: 1200px;
   width: 100%;
   text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -87,6 +122,223 @@ body::before {
   height: 100%;
   background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
   pointer-events: none;
+}
+
+/* Desktop Grid Layout */
+@media (min-width: 1024px) {
+  .container {
+    display: grid;
+    grid-template-areas: 
+      "header header header"
+      "device-info file-section download-section"
+      "buttons buttons buttons"
+      "progress progress progress"
+      "footer footer footer"
+      "feedback-section feedback-section feedback-section";
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto auto auto auto;
+    gap: 32px;
+    text-align: left;
+    align-items: start;
+  }
+  
+  .header-row {
+    grid-area: header;
+    padding-top: 0;
+    text-align: center;
+  }
+
+  
+  .device-info {
+    grid-area: device-info;
+    margin-bottom: 0;
+  }
+  
+  .file-input-wrapper {
+    grid-area: file-section;
+    margin-bottom: 0;
+    height: fit-content;
+  }
+  
+  .download-section {
+    grid-area: download-section;
+    margin-top: 0;
+    display: block !important;
+    padding: 24px;
+    height: fit-content;
+    min-height: auto;
+  }
+  
+  .download-section:empty {
+    display: none !important;
+  }
+  
+  .download-section:not(:empty) {
+    display: block !important;
+  }
+  
+  .button-group {
+    grid-area: buttons;
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 0px;
+  }
+  
+  .button-group .btn {
+    width: auto;
+    min-width: 180px;
+    max-width: 220px;
+    padding: 10px 50px;
+  }
+  
+  .madeby {
+    grid-area: footer;
+    margin-top: 0;
+    text-align: center;
+    width: 100%;
+  }
+  
+  .social-links {
+    grid-area: footer;
+    margin-top: 15px;
+    padding: 50px 40px;
+    margin-bottom: 10px;
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .feedback-section {
+    grid-area: feedback-section;
+    margin-top: 0;
+    padding: 32px;
+    text-align: center;
+  }
+  
+  .feedback-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+    max-width: 60%;
+    margin: 0 auto;
+  }
+  
+  .feedback-form .form-group:nth-child(3),
+  .feedback-form .form-group:nth-child(4),
+  .feedback-form .form-group:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+  
+  .feedback-form .btn-feedback {
+    display: block;
+    justify-self: center;
+    max-width: 500px;
+    margin-top: 20px;
+    padding-left: 30px;
+    margin-left: 33px;
+  }
+  
+  .progress-section {
+    grid-area: progress;s
+    margin-top: 0;
+    margin-bottom: 0;
+    width: 100%;
+    max-width: 600px;
+    justify-self: center;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: none;
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: all 0.3s ease;
+  }
+  
+  .progress-section.show {
+    display: block !important;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .connection-status {
+    grid-area: header;
+    margin-bottom: 0;
+    margin-top: 100px;
+  }
+  
+  /* Ensure proper spacing and alignment */
+  .file-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: fit-content;
+    justify-content: flex-start;
+  }
+  
+  .download-section {
+    height: fit-content;
+  }
+  
+  /* Make the layout more balanced */
+  .device-info h3,
+  .file-input-wrapper label {
+    margin-bottom: 16px;
+  }
+  
+  /* Ensure proper spacing between sections */
+  .device-info,
+  .file-input-wrapper,
+  .download-section {
+    align-self: start;
+  }
+  
+  /* Fix connection status positioning */
+  .connection-status {
+    margin-bottom: 16px;
+  }
+  
+  /* Ensure proper spacing between sections */
+  .buttons {
+    margin-bottom: 0;
+  }
+  
+  .footer {
+    margin-top: 0;
+  }
+}
+
+/* Large Desktop Layout */
+@media (min-width: 1400px) {
+  .container {
+    max-width: 1400px;
+    grid-template-columns: 1fr 1.5fr 1fr;
+    gap: 40px;
+    padding: 60px;
+  }
+  
+  .button-group .btn {
+    max-width: 280px;
+    padding: 16px 24px;
+    font-size: 1.1rem;
+  }
+  
+  .download-section {
+    padding: 32px;
+  }
+  
+  .device-info {
+    padding: 32px;
+  }
+  
+  .file-input-wrapper {
+    padding: 32px;
+  }
 }
 
 /* ========================================
@@ -183,6 +435,7 @@ h1 {
 .device-info {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border-radius: 20px;
   padding: 28px;
   margin-bottom: 32px;
@@ -580,6 +833,7 @@ h1 {
   padding: 28px;
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: none;
@@ -588,6 +842,9 @@ h1 {
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   position: relative;
   z-index: 1;
+  overflow: hidden;
+  min-height: 200px;
+  max-height: 400px;
 }
 
 /* Received Files Header */
@@ -598,6 +855,58 @@ h1 {
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* Scrollable container for received files */
+.received-files-container {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  margin-right: -8px;
+}
+
+/* Custom scrollbar for received files */
+.received-files-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.received-files-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.received-files-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.received-files-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Mobile adjustments for scrollable container */
+@media (max-width: 768px) {
+  .received-files-container {
+    max-height: 250px;
+  }
+  
+  .download-section {
+    max-height: 350px;
+  }
+}
+
+@media (max-width: 480px) {
+  .received-files-container {
+    max-height: 200px;
+  }
+  
+  .download-section {
+    max-height: 300px;
+  }
 }
 
 .received-files-header h3 {
@@ -619,6 +928,9 @@ h1 {
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-clear-files:hover {
@@ -630,10 +942,10 @@ h1 {
 /* Received File Items */
 .received-file-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding: 20px;
   border-radius: 16px;
   margin-bottom: 16px;
@@ -641,6 +953,7 @@ h1 {
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  gap: 16px;
 }
 
 .received-file-item::before {
@@ -666,8 +979,8 @@ h1 {
 }
 
 .file-info {
-  flex: 1;
-  margin-right: 20px;
+  width: 100%;
+  min-width: 0; /* Allow text to wrap properly */
 }
 
 .file-name {
@@ -676,12 +989,15 @@ h1 {
   font-weight: 600;
   margin-bottom: 8px;
   letter-spacing: 0.01em;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .file-details {
   display: flex;
   gap: 16px;
   font-size: 0.9rem;
+  flex-wrap: wrap;
 }
 
 .file-size {
@@ -698,6 +1014,9 @@ h1 {
   display: flex;
   gap: 12px;
   align-items: center;
+  justify-content: flex-start;
+  flex-shrink: 0; /* Prevent buttons from shrinking */
+  width: 100%;
 }
 
 .btn-download-file {
@@ -711,10 +1030,13 @@ h1 {
   transition: all 0.3s ease;
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap; /* Prevent text wrapping */
+  min-width: fit-content;
 }
 
 .btn-download-file:hover {
@@ -733,11 +1055,13 @@ h1 {
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 36px;
   height: 36px;
+  flex-shrink: 0; /* Prevent shrinking */
 }
 
 .btn-remove-file:hover {
@@ -1049,34 +1373,34 @@ h1 {
   
   /* Mobile styles for received files */
   .received-file-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    gap: 12px;
   }
   
   .file-info {
-    margin-right: 0;
     width: 100%;
   }
   
   .file-actions {
     width: 100%;
     justify-content: space-between;
+    gap: 8px;
   }
   
   .btn-download-file {
     flex: 1;
     justify-content: center;
+    min-width: 0; /* Allow flex shrinking */
   }
   
   .received-files-header {
     flex-direction: column;
     gap: 12px;
-    align-items: flex-start;
+    align-items: stretch;
   }
   
   .btn-clear-files {
-    align-self: flex-end;
+    align-self: stretch;
+    text-align: center;
   }
   
   /* Download section mobile optimizations */
@@ -1096,6 +1420,7 @@ h1 {
   .file-details {
     flex-direction: column;
     gap: 8px;
+    align-items: flex-start;
   }
   
   .file-name {
@@ -1166,16 +1491,19 @@ h1 {
   
   .received-file-item {
     padding: 16px;
-    gap: 12px;
+    gap: 10px;
   }
   
   .file-name {
     font-size: 0.95rem;
     line-height: 1.3;
+    max-width: 100%;
+    overflow-wrap: break-word;
   }
   
   .file-details {
     font-size: 0.8rem;
+    gap: 8px;
   }
   
   .file-actions {
@@ -1183,15 +1511,16 @@ h1 {
   }
   
   .btn-download-file {
-    padding: 8px 12px;
+    padding: 10px 12px;
     font-size: 0.85rem;
     gap: 6px;
+    min-height: 44px; /* Touch-friendly */
   }
   
   .btn-remove-file {
-    padding: 8px;
-    min-width: 36px;
-    height: 36px;
+    padding: 10px;
+    min-width: 44px;
+    height: 44px;
     font-size: 0.8rem;
   }
   
@@ -1238,6 +1567,14 @@ h1 {
   
   .received-file-item {
     margin-bottom: 20px; /* More space between items for easier touch */
+  }
+  
+  /* Ensure proper button alignment */
+  .btn-download-file,
+  .btn-remove-file {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
@@ -1555,11 +1892,16 @@ h1 {
    ======================================== */
 
 .feedback-section {
+  display: grid;
+  align-items: center;
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(15px);
   border-radius: 20px;
   padding: 32px;
   margin-top: 32px;
+  margin-left: 18%;
+  width: 80%;
+  max-width: 800px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 
     0 8px 32px rgba(0, 0, 0, 0.1),
@@ -1598,16 +1940,18 @@ h1 {
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 16px 20px;
+  min-width: 300px;
+  padding: 18px 24px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-family: inherit;
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 .form-group input::placeholder,
@@ -1740,6 +2084,9 @@ h1 {
   .feedback-section {
     padding: 24px;
     margin-top: 24px;
+    margin-left: 5%;
+    width: 90%;
+    max-width: none;
   }
   
   .feedback-section h3 {
@@ -1753,8 +2100,9 @@ h1 {
   .form-group input,
   .form-group select,
   .form-group textarea {
-    padding: 14px 16px;
-    font-size: 0.9rem;
+    min-width: 250px;
+    padding: 16px 20px;
+    font-size: 0.95rem;
   }
   
   .btn-feedback {
@@ -1767,6 +2115,9 @@ h1 {
   .feedback-section {
     padding: 20px;
     margin-top: 20px;
+    margin-left: 2%;
+    width: 96%;
+    max-width: none;
   }
   
   .feedback-section h3 {
@@ -1780,8 +2131,9 @@ h1 {
   .form-group input,
   .form-group select,
   .form-group textarea {
-    padding: 12px 14px;
-    font-size: 0.85rem;
+    min-width: 200px;
+    padding: 14px 18px;
+    font-size: 0.9rem;
   }
   
   .btn-feedback {

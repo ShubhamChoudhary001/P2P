@@ -179,7 +179,12 @@ class UIManager {
    */
   showProgress(message, percent, speedMbps = 0) {
     if (this.elements.progressSection) {
+      // Show progress section with animation
       this.elements.progressSection.style.display = 'block';
+      // Use setTimeout to ensure display: block is applied before adding the class
+      setTimeout(() => {
+        this.elements.progressSection.classList.add('show');
+      }, 10);
     }
     
     if (this.elements.progressText) {
@@ -201,7 +206,15 @@ class UIManager {
    */
   hideProgress() {
     if (this.elements.progressSection) {
-      this.elements.progressSection.style.display = 'none';
+      // Remove show class to trigger fade out animation
+      this.elements.progressSection.classList.remove('show');
+      
+      // Hide the element after animation completes
+      setTimeout(() => {
+        if (this.elements.progressSection) {
+          this.elements.progressSection.style.display = 'none';
+        }
+      }, 300); // Match the CSS transition duration
     }
   }
 
@@ -260,6 +273,7 @@ class UIManager {
           <span class="icon">🗑️</span>Clear All
         </button>
       </div>
+      <div class="received-files-container">
     `;
     
     // Add each file
@@ -285,6 +299,9 @@ class UIManager {
         </div>
       `;
     });
+    
+    // Close the scrollable container
+    html += `</div>`;
     
     this.elements.downloadSection.innerHTML = html;
     this.elements.downloadSection.style.display = 'block';

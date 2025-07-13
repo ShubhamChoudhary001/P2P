@@ -196,6 +196,11 @@ class P2PFileSharing {
       if (state === 'connected' || state === 'failed' || state === 'disconnected') {
         this.connectionAttemptInProgress = false;
       }
+      
+      // Hide progress bar on connection failure or disconnection
+      if (state === 'failed' || state === 'disconnected') {
+        this.uiManager.hideProgress();
+      }
     };
     this.webrtcManager.onIceConnectionStateChange = (state) => {
       console.log('🧊 ICE connection state:', state);
@@ -471,13 +476,14 @@ class P2PFileSharing {
       this.uiManager.showSuccess('All files sent successfully!');
       this.uiManager.hideProgress();
       
-    } catch (error) {
-      console.error('❌ Error sending files:', error);
-      this.uiManager.showError(`Failed to send files: ${error.message}`);
-      this.uiManager.hideProgress();
-    } finally {
-      this.fileTransferState.isTransferring = false;
-    }
+          } catch (error) {
+        console.error('❌ Error sending files:', error);
+        this.uiManager.showError(`Failed to send files: ${error.message}`);
+        this.uiManager.hideProgress();
+      } finally {
+        this.fileTransferState.isTransferring = false;
+        this.uiManager.hideProgress(); // Ensure progress is hidden
+      }
   }
 
   /**
@@ -1090,6 +1096,7 @@ class P2PFileSharing {
     this.peerId = null;
     this.isConnected = false;
     this.uiManager.updateConnectionStatus('Disconnected', 'disconnected');
+    this.uiManager.hideProgress(); // Hide progress bar on disconnect
     this.updateUI();
   }
 
@@ -1104,6 +1111,9 @@ class P2PFileSharing {
     
     // Close and reinitialize the connection
     this.webrtcManager.close();
+    
+    // Hide progress bar on reset
+    this.uiManager.hideProgress();
     
     // Show success message
     this.uiManager.showSuccess('Connection reset successfully. You can now try connecting again.');
