@@ -154,26 +154,21 @@ class P2PFileSharing {
     this.webrtcManager.onDataChannelOpen = (isSender) => {
       this.uiManager.showSuccess('Connection established!');
       console.log('🔗 Data channel opened, isSender:', isSender);
-      
       if (isSender && this.currentFiles && this.currentFiles.length > 0) {
-        console.log('📤 Starting file transfer as sender');
+        console.log('📤 Starting file transfer as sender (onDataChannelOpen)');
         this.sendFiles(this.currentFiles);
       }
     };
-    
     this.webrtcManager.onDataChannelMessage = (e) => {
       this.handleDataChannelMessage(e);
     };
-    
     this.webrtcManager.onIceCandidate = (candidate) => {
       console.log('🧊 Sending ICE candidate to peer');
       this.socketManager.sendSignal(this.peerId, candidate);
     };
-    
     this.webrtcManager.onConnectionStateChange = (state) => {
       console.log('🔗 WebRTC connection state:', state);
     };
-    
     this.webrtcManager.onIceConnectionStateChange = (state) => {
       console.log('🧊 ICE connection state:', state);
       if (state === 'connected' || state === 'completed') {
@@ -404,6 +399,7 @@ class P2PFileSharing {
     // Handle EOF message
     if (typeof e.data === 'string') {
       if (e.data === '{"type":"EOF"}' || (e.data.startsWith('{') && e.data.includes('"type":"EOF"'))) {
+        console.log('📥 EOF message received');
         this.fileTransferState.eofReceived = true;
         // Only finalize if receivedSize matches fileSize
         if (this.fileTransferState.receivedSize === this.fileTransferState.fileSize) {
@@ -445,6 +441,7 @@ class P2PFileSharing {
       
     } else {
       // Binary data
+      console.log('📥 Received file chunk, size:', e.data.byteLength);
       this.fileTransferState.buffer.push(e.data);
       this.fileTransferState.receivedSize += e.data.byteLength;
       
