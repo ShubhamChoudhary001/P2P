@@ -93,6 +93,7 @@ class WebRTCManager {
     };
     
     if (isSender) {
+      console.log('🔧 Creating data channel on sender...');
       // Optimized data channel configuration for maximum speed
       this.dc = this.pc.createDataChannel('file', {
         ordered: true, // Ensure ordered delivery
@@ -102,6 +103,7 @@ class WebRTCManager {
         negotiated: false, // Let WebRTC handle negotiation
         id: 0 // Use first available ID
       });
+      console.log('🔧 Data channel created on sender, setting up...');
       this.setupDataChannel(true);
     } else {
       this.pc.ondatachannel = (e) => {
