@@ -17,6 +17,7 @@ class WebRTCManager {
     // Queue for sending data
     this.sendQueue = [];
     this.isSending = false;
+    this.isCreatingOffer = false;
   }
 
   /**
@@ -200,6 +201,11 @@ class WebRTCManager {
    * @returns {Promise<RTCSessionDescription>} The created offer
    */
   async createOffer() {
+    if (this.isCreatingOffer) {
+      console.log('Offer creation already in progress, skipping.');
+      return;
+    }
+    this.isCreatingOffer = true;
     try {
       // Check if we need a fresh connection
       if (!this.pc) {
@@ -209,32 +215,39 @@ class WebRTCManager {
         console.log('🔄 Signaling state not stable, resetting connection...');
         await this.resetConnection();
       }
-      
-      const offer = await this.pc.createOffer();
-      await this.pc.setLocalDescription(offer);
-      console.log('Created offer');
-      return offer;
+      // Only create offer if signalingState is stable
+      if (this.pc.signalingState === 'stable') {
+        const offer = await this.pc.createOffer();
+        await this.pc.setLocalDescription(offer);
+        console.log('Created offer');
+        return offer;
+      } else {
+        console.warn('Signaling state not stable, skipping offer creation.');
+      }
     } catch (error) {
       console.error('Error creating offer:', error);
-      
       // Only recreate if it's a critical state error
       if (error.message.includes('SDP does not match') || error.message.includes('InvalidModificationError')) {
         console.log('🔄 Critical error detected, recreating connection...');
         await this.forceReset();
-        
         // Retry once with fresh connection
         try {
-          const offer = await this.pc.createOffer();
-          await this.pc.setLocalDescription(offer);
-          console.log('Created offer after reset');
-          return offer;
+          if (this.pc.signalingState === 'stable') {
+            const offer = await this.pc.createOffer();
+            await this.pc.setLocalDescription(offer);
+            console.log('Created offer after reset');
+            return offer;
+          } else {
+            console.warn('Signaling state not stable after reset, skipping offer creation.');
+          }
         } catch (retryError) {
           console.error('Error creating offer after reset:', retryError);
           throw retryError;
         }
       }
-      
       throw error;
+    } finally {
+      this.isCreatingOffer = false;
     }
   }
 
@@ -551,7 +564,17 @@ class WebRTCManager {
 
       const sendChunk = () => {
         if (offset >= file.size) {
-          resolve();
+          // All chunks sent, now send EOF message
+          this.dc.send(JSON.stringify({ type: 'EOF' }));
+          // Wait for buffer to flush before resolving
+          const waitForBufferFlush = () => {
+            if (this.dc.bufferedAmount > 0) {
+              setTimeout(waitForBufferFlush, 50);
+            } else {
+              resolve();
+            }
+          };
+          waitForBufferFlush();
           return;
         }
 
@@ -572,17 +595,14 @@ class WebRTCManager {
           try {
             this.dc.send(e.target.result);
             offset += e.target.result.byteLength;
-            
             // Progress updates
             if (onProgress && Date.now() - lastProgressUpdate > this.config.PROGRESS_UPDATE_INTERVAL) {
               const progress = (offset / file.size) * 100;
               onProgress(progress, offset, file.size);
               lastProgressUpdate = Date.now();
             }
-            
             // Continue sending immediately if not paused
             if (!isPaused && offset < file.size) {
-              // Use immediate execution for maximum speed
               sendChunk();
             }
           } catch (error) {
@@ -590,15 +610,12 @@ class WebRTCManager {
             reject(error);
           }
         };
-        
         reader.onerror = (error) => {
           console.error('FileReader error:', error);
           reject(error);
         };
-        
         reader.readAsArrayBuffer(chunk);
       };
-
       // Start sending
       sendChunk();
     });

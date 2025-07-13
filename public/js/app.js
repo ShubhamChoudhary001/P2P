@@ -388,8 +388,29 @@ class P2PFileSharing {
    */
   handleDataChannelMessage(e) {
     console.log('📥 Received message, type:', typeof e.data, 'size:', typeof e.data === 'string' ? e.data.length : e.data.byteLength);
-    
+    // Handle EOF message
     if (typeof e.data === 'string') {
+      if (e.data === '{"type":"EOF"}' || (e.data.startsWith('{') && e.data.includes('"type":"EOF"'))) {
+        // File complete (EOF received)
+        console.log('✅ EOF received, finalizing file:', this.fileTransferState.fileName);
+        const blob = new Blob(this.fileTransferState.buffer);
+        this.fileTransferState.buffer = null; // Free memory
+        const url = URL.createObjectURL(blob);
+        // Add to received files history
+        const receivedFile = {
+          name: this.fileTransferState.fileName,
+          size: this.fileTransferState.fileSize,
+          url: url,
+          timestamp: new Date().toISOString(),
+          id: Date.now() + Math.random().toString(36).substr(2, 9)
+        };
+        this.receivedFiles.push(receivedFile);
+        // Update the download section with all files
+        this.uiManager.updateReceivedFiles(this.receivedFiles);
+        this.uiManager.hideProgress();
+        this.uiManager.showSuccess(`File received: ${this.fileTransferState.fileName}`);
+        return;
+      }
       try {
         const meta = JSON.parse(e.data);
         console.log('📥 Received metadata:', meta);
