@@ -75,8 +75,13 @@ class FeedbackManager {
     // Show loading state
     this.setLoadingState(true);
     
+    // Set API base URL depending on environment
+    const API_BASE_URL = (window.location.hostname.includes('netlify.app') || window.location.hostname !== 'localhost')
+      ? 'https://shareshort.onrender.com' // <-- Replace with your Render backend URL
+      : '';
+
     try {
-      const response = await fetch('/api/feedback', {
+      const response = await fetch(`${API_BASE_URL}/api/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
