@@ -5,6 +5,17 @@ const { Server } = require('socket.io');
 const path = require('path');
 const compression = require('compression');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const cookieParser = require('cookie-parser');
+const admin = require('firebase-admin');
+const serviceAccount = require('./firebase-service-account.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+const db = admin.firestore();
+const feedbackCollection = db.collection('feedbacks');
 
 const app = express();
 const server = http.createServer(app);
@@ -53,6 +64,9 @@ app.use((req, res, next) => {
 // Parse JSON bodies for feedback endpoint
 app.use(express.json({ limit: '1mb' }));
 
+// Parse cookies for session management
+app.use(cookieParser());
+
 // Session management for admin authentication
 const sessions = new Map();
 
@@ -66,7 +80,7 @@ function requireAuth(req, res, next) {
 }
 
 // Feedback endpoint
-app.post('/api/feedback', (req, res) => {
+app.post('/api/feedback', async (req, res) => {
   try {
     const { name, email, type, message } = req.body;
     
@@ -86,9 +100,7 @@ app.post('/api/feedback', (req, res) => {
       });
     }
     
-    // Create feedback object
     const feedback = {
-      id: Date.now().toString(),
       name: name || 'Anonymous',
       email: email || 'No email provided',
       type,
@@ -98,8 +110,7 @@ app.post('/api/feedback', (req, res) => {
       ip: req.ip || req.connection.remoteAddress
     };
     
-    // Store feedback in memory
-    feedbacks.push(feedback);
+    await feedbackCollection.add(feedback);
     
     // Log feedback to console
     console.log('📝 New Feedback Received:');
@@ -118,8 +129,7 @@ app.post('/api/feedback', (req, res) => {
     
     res.json({ 
       success: true, 
-      message: 'Feedback submitted successfully',
-      feedbackId: feedback.id
+      message: 'Feedback submitted successfully'
     });
     
   } catch (error) {
@@ -447,12 +457,14 @@ app.get('/admin/logout', (req, res) => {
 });
 
 // API endpoint to get all feedbacks (protected)
-app.get('/api/feedback', requireAuth, (req, res) => {
-  res.json({
-    success: true,
-    feedbacks: feedbacks,
-    count: feedbacks.length
-  });
+app.get('/api/feedback', requireAuth, async (req, res) => {
+  try {
+    const snapshot = await feedbackCollection.orderBy('timestamp', 'desc').get();
+    const feedbacks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ success: true, feedbacks, count: feedbacks.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to load feedbacks' });
+  }
 });
 
 // Feedback dashboard endpoint (protected)
@@ -707,8 +719,8 @@ app.get('/admin/feedback', requireAuth, (req, res) => {
 const devices = new Map(); // deviceId -> socket
 const deviceConnections = new Map(); // deviceId -> connectedDeviceId
 
-// Store feedback submissions
-const feedbacks = [];
+// Load feedback on startup
+// Remove local file storage for feedbacks
 
 // Memory management - clean up old connections periodically
 setInterval(() => {
@@ -741,9 +753,6 @@ app.get('/health', (req, res) => {
     }
   });
 });
-
-// Serve static frontend
-app.use(express.static(path.join(__dirname, 'public')));
 
 io.on('connection', socket => {
   console.log('🔗 client connected:', socket.id);
@@ -853,6 +862,9 @@ function broadcastDeviceList() {
   
   io.emit('deviceList', deviceList);
 }
+
+// Serve static frontend (must be after all API routes)
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`
