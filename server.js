@@ -8,7 +8,6 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const admin = require('firebase-admin');
-// Use environment variable for service account (for Render deployment)
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 admin.initializeApp({
