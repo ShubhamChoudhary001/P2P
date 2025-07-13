@@ -250,7 +250,12 @@ class P2PFileSharing {
     if (isSender) {
       this.webrtcManager.createOffer()
         .then(offer => {
-          this.socketManager.sendSignal(this.peerId, offer);
+          if (offer !== undefined && offer !== null) {
+            this.socketManager.sendSignal(this.peerId, offer);
+          } else {
+            console.error('startFileTransfer: Tried to send undefined offer', { peerId: this.peerId, offer });
+            this.uiManager.showError('Failed to create a valid offer for signaling.');
+          }
         })
         .catch(error => {
           console.error('Error creating offer:', error);
