@@ -1166,6 +1166,16 @@ class P2PFileSharing {
   }
 
   /**
+   * Clear all sent files (selected for sending)
+   */
+  clearSentFiles() {
+    this.currentFiles = null;
+    this.uiManager.clearSentFilesDisplay();
+    this.updateUI();
+    this.uiManager.showSuccess('All sent files cleared');
+  }
+
+  /**
    * Update UI state
    */
   updateUI() {

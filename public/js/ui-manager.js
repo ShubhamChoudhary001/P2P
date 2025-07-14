@@ -134,18 +134,56 @@ class UIManager {
    * @param {FileList} files - Selected files
    */
   updateFileSelection(files) {
-    if (!files || files.length === 0) return;
-    
+    if (!files || files.length === 0) {
+      if (this.elements.selectedFile) {
+        this.elements.selectedFile.innerHTML = '';
+        this.elements.selectedFile.style.display = 'none';
+      }
+      if (this.elements.fileInputLabel) {
+        this.elements.fileInputLabel.innerHTML = '📁 Select file(s) to send';
+      }
+      // Hide clear button if present
+      const clearBtn = document.getElementById('clearSentFilesBtn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      return;
+    }
     if (this.elements.selectedFile) {
       this.elements.selectedFile.innerHTML = Array.from(files).map(file => `
         <div><strong>${file.name}</strong> <span class="file-size">${Utils.formatFileSize(file.size)}</span></div>
-      `).join('');
+      `).join('') +
+      `<button id="clearSentFilesBtn" class="btn-clear-files" style="margin-top:10px;"><span class="icon">🗑️</span>Clear Sent Files</button>`;
       this.elements.selectedFile.style.display = 'block';
+      // Add event listener for clear button
+      setTimeout(() => {
+        const clearBtn = document.getElementById('clearSentFilesBtn');
+        if (clearBtn) {
+          clearBtn.onclick = () => {
+            if (window.app && typeof window.app.clearSentFiles === 'function') {
+              window.app.clearSentFiles();
+            }
+          };
+        }
+      }, 0);
     }
-    
     if (this.elements.fileInputLabel) {
       this.elements.fileInputLabel.innerHTML = `📁 ${files.length} file(s) selected`;
     }
+  }
+
+  /**
+   * Clear the sent files display
+   */
+  clearSentFilesDisplay() {
+    if (this.elements.selectedFile) {
+      this.elements.selectedFile.innerHTML = '';
+      this.elements.selectedFile.style.display = 'none';
+    }
+    if (this.elements.fileInputLabel) {
+      this.elements.fileInputLabel.innerHTML = '📁 Select file(s) to send';
+    }
+    // Hide clear button if present
+    const clearBtn = document.getElementById('clearSentFilesBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
   }
 
   /**
