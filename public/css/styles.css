@@ -156,8 +156,9 @@ body::before {
   
   .file-input-wrapper {
     grid-area: file-section;
+    padding-bottom: 50px;
     margin-bottom: 0;
-    height: fit-content;
+    height: fit-content
   }
   
   .download-section {
@@ -720,6 +721,7 @@ h1 {
 }
 
 .btn-receive {
+  padding: 10px;
   background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
   box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
