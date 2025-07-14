@@ -395,8 +395,8 @@ class P2PFileSharing {
               this.socketManager.sendSignal(this.peerId, offer);
               // File transfer will start automatically when data channel opens
             } else {
-              console.error('startFileTransfer: Tried to send undefined offer', { peerId: this.peerId, offer });
-              this.uiManager.showError('Failed to create a valid offer for signaling.');
+              console.warn('startFileTransfer: Offer was undefined or null, skipping send. This can happen if the connection was reset or cancelled.', { peerId: this.peerId, offer });
+              // No UI error shown, as this is not a user-facing problem if transfer works
             }
           } catch (error) {
             console.error('❌ Error creating offer:', error);
