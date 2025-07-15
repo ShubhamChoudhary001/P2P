@@ -41,6 +41,9 @@ class P2PFileSharing {
     // File history for received files
     this.receivedFiles = [];
     
+    // Configurable max transfer time (default: 40 minutes)
+    this.config.MAX_TRANSFER_TIME = this.config.MAX_TRANSFER_TIME || 60 * 60 * 1000; // 40 minutes
+    
     // Initialize application
     this.initialize();
   }
@@ -497,7 +500,7 @@ class P2PFileSharing {
     let lastTime = performance.now();
     let lastBytes = 0;
     const startTime = Date.now();
-    const maxTransferTime = 300000; // 5 minutes max transfer time
+    const maxTransferTime = this.config.MAX_TRANSFER_TIME; // Use configurable max transfer time
     let lastActivityTime = Date.now();
     
     // Show initial progress immediately
@@ -523,6 +526,8 @@ class P2PFileSharing {
       while (offset < file.size) {
         // Check for timeout
         if (Date.now() - startTime > maxTransferTime) {
+          // Provide a more user-friendly error and suggestion
+          this.uiManager.showError('File transfer timed out. This may be due to a slow network, large file size, or browser/device limitations. Try a smaller file or check your connection.');
           throw new Error('File transfer timeout - taking too long');
         }
         
@@ -560,7 +565,7 @@ class P2PFileSharing {
             // Wait for buffer to clear with timeout
             const startWait = Date.now();
             let waitCount = 0;
-            while (this.webrtcManager.dc.bufferedAmount > this.config.MAX_BUFFERED_AMOUNT * 0.5 && (Date.now() - startWait) < 3000) {
+            while (this.webrtcManager.dc.bufferedAmount > this.config.MAX_BUFFERED_AMOUNT * 0.5 && (Date.now() - startWait) < 10000) { // Wait up to 10s
               await new Promise(resolve => setTimeout(resolve, 50));
               waitCount++;
               if (waitCount % 20 === 0) { // Log every second
@@ -568,6 +573,7 @@ class P2PFileSharing {
               }
             }
             if (this.webrtcManager.dc.bufferedAmount > this.config.MAX_BUFFERED_AMOUNT * 0.5) {
+              this.uiManager.showError('Network or device is too slow to keep up with the file transfer. Try a smaller file or check your connection.');
               console.warn('⚠️ Buffer still full after timeout, continuing anyway');
             } else {
               console.log('✅ Buffer cleared, continuing transfer');
