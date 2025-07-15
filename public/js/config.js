@@ -13,8 +13,8 @@ function isIOS() {
 }
 
 // Default values
-let CHUNK_SIZE = 512 * 1024; // 512KB
-let MAX_BUFFERED_AMOUNT = 16 * 1024 * 1024; // 16MB
+let CHUNK_SIZE = 64 * 1024; // 64KB
+let MAX_BUFFERED_AMOUNT = 2 * 1024 * 1024; // 2MB
 
 // Lower values for mobile/iOS/iPad
 if (isMobileOrTablet() || isIOS()) {
