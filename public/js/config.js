@@ -34,8 +34,8 @@ const CONFIG = {
   ],
   
   // File Transfer Settings - Optimized for Maximum Speed
-  CHUNK_SIZE: 128 * 1024, // 128KB chunks (reduced for better responsiveness)
-  MAX_BUFFERED_AMOUNT: 4 * 1024 * 1024, // 4MB buffer limit (reduced for better flow control)
+  CHUNK_SIZE: 256 * 1024, // 512KB chunks (increased for higher throughput)
+  MAX_BUFFERED_AMOUNT: 8 * 1024 * 1024, // 16MB buffer limit (increased for higher throughput)
   MAX_SIGNALING_DATA_SIZE: 10000, // 10KB max signaling data
   
   // Performance Settings - Optimized for Maximum Speed

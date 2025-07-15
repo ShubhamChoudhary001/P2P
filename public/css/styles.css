@@ -258,18 +258,22 @@
     
     .feedback-section {
       grid-area: feedback-section;
+      justify-self: center;
       margin-top: 0;
       padding: 32px;
       text-align: center;
+      margin-left: auto;
+      margin-right: auto;
     }
     
     .feedback-form {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 20px;
       align-items: start;
-      max-width: 60%;
-      margin: 0 auto;
+      max-width: 80%;
+      margin-left: auto;
+      margin-right: auto;
     }
     
     .feedback-form .form-group:nth-child(3),
@@ -280,11 +284,11 @@
     
     .feedback-form .btn-feedback {
       display: block;
+      align-items: center;
       justify-self: center;
-      max-width: 500px;
       margin-top: 20px;
-      padding-left: 30px;
-      margin-left: 33px;
+      padding-left: 0px;
+      margin-left: 0px;
     }
     
     .progress-section {
@@ -383,6 +387,12 @@
     
     .file-input-wrapper {
       padding: 32px;
+    }
+    
+    .feedback-section {
+      margin-left: auto;
+      margin-right: auto;
+      justify-self: center;
     }
   }
   
@@ -1486,6 +1496,8 @@
       min-width: 40px;
       height: 40px;
     }
+
+
   }
   
   @media (max-width: 480px) {
@@ -1940,13 +1952,13 @@
   .feedback-section {
     display: grid;
     align-items: center;
+    justify-content: center;
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(15px);
     border-radius: 20px;
     padding: 32px;
     margin-top: 32px;
-    margin-left: 18%;
-    width: 80%;
+    width: 100%;
     max-width: 800px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 
@@ -1974,6 +1986,7 @@
   
   .feedback-form {
     display: flex;
+    align-items: center;
     flex-direction: column;
     gap: 16px;
   }
