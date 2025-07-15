@@ -433,7 +433,7 @@ app.post('/admin/auth', (req, res) => {
   const { username, password } = req.body;
   
   const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
-  const expectedPassword = process.env.ADMIN_PASSWORD || 'admin';
+  const expectedPassword = process.env.ADMIN_PASSWORD || 'Shubham7828';
   
   // Debug logging (remove in production)
   console.log('🔐 Auth attempt:', { 
