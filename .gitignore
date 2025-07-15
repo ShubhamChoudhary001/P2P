@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.production
+ShareShort.env
 
 # Feedback data (contains user information)
 feedback.json
