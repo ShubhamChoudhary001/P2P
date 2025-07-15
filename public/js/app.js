@@ -211,6 +211,24 @@ class P2PFileSharing {
         this.detectConnectionType();
       }
     };
+    this.webrtcManager.onDataChannelError = (error, state) => {
+      this.uiManager.showError(
+        `Connection error: Data channel is ${state}. The transfer failed. Please check your network and try again.`,
+        {
+          action: 'retry',
+          onAction: () => this.retryFileTransfer()
+        }
+      );
+    };
+    this.webrtcManager.onDataChannelClosed = (state) => {
+      this.uiManager.showError(
+        `Connection closed: Data channel is ${state}. The transfer was interrupted. You can try to reconnect and resend.`,
+        {
+          action: 'reconnect',
+          onAction: () => this.retryFileTransfer()
+        }
+      );
+    };
   }
 
   /**
@@ -1294,6 +1312,17 @@ class P2PFileSharing {
     console.log('✅ File finalization completed successfully - Complete file received');
   }
 }
+
+// Add a retryFileTransfer method to the P2PFileSharing class
+P2PFileSharing.prototype.retryFileTransfer = function() {
+  this.uiManager.showInfo('Reconnecting and retrying file transfer...');
+  // Reset and re-initiate the connection and file transfer
+  this.webrtcManager.fullReset().then(() => {
+    setTimeout(() => {
+      this.startFileTransfer(true);
+    }, 500);
+  });
+};
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {

@@ -406,6 +406,10 @@ class WebRTCManager {
       }
       
       this.connectionState = 'failed';
+      // Notify app for user-friendly error handling
+      if (this.onDataChannelError) {
+        this.onDataChannelError(error, this.dc ? this.dc.readyState : 'unknown');
+      }
     };
 
     this.dc.onclose = () => {
@@ -428,6 +432,10 @@ class WebRTCManager {
       
       this.connectionState = 'disconnected';
       this.stopPerformanceMonitoring();
+      // Notify app for user-friendly error handling
+      if (this.onDataChannelClosed) {
+        this.onDataChannelClosed(this.dc ? this.dc.readyState : 'unknown');
+      }
     };
     
     // Optimized buffer management
