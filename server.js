@@ -487,6 +487,33 @@ app.get('/api/feedback', requireAuth, async (req, res) => {
   }
 });
 
+// API endpoint to delete a single feedback by ID (protected)
+app.delete('/api/feedback/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ success: false, error: 'Feedback ID required' });
+    if (!feedbackCollection) return res.status(503).json({ success: false, error: 'Feedback database unavailable' });
+    await feedbackCollection.doc(id).delete();
+    res.json({ success: true, message: 'Feedback deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to delete feedback' });
+  }
+});
+
+// API endpoint to delete all feedbacks (protected)
+app.delete('/api/feedback', requireAuth, async (req, res) => {
+  try {
+    if (!feedbackCollection) return res.status(503).json({ success: false, error: 'Feedback database unavailable' });
+    const snapshot = await feedbackCollection.get();
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    res.json({ success: true, message: 'All feedbacks deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to delete all feedbacks' });
+  }
+});
+
 // Feedback dashboard endpoint (protected)
 app.get('/admin/feedback', requireAuth, async (req, res) => {
   try {
