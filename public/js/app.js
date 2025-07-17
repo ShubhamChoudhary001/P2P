@@ -419,7 +419,13 @@ class P2PFileSharing {
               // File transfer will start automatically when data channel opens
             } else {
               console.warn('startFileTransfer: Offer was undefined or null, skipping send. This can happen if the connection was reset or cancelled.', { peerId: this.peerId, offer });
-              this.uiManager.showError('Failed to create a connection offer after several attempts. Resetting connection. Please try again.');
+              this.uiManager.showError({
+                message: 'Failed to create a connection offer after several attempts. Resetting connection. Please try again.',
+                actionText: 'Retry',
+                onAction: () => {
+                  this.startFileTransfer(isSender);
+                }
+              });
               if (this.webrtcManager.fullReset) {
                 this.webrtcManager.fullReset();
               } else if (this.webrtcManager.forceResetConnectionState) {

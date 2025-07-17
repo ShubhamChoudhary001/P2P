@@ -42,11 +42,24 @@ class Utils {
 
   /**
    * Create and show a notification
-   * @param {string} message - Notification message
-   * @param {string} type - Notification type (success, error, info)
-   * @param {number} duration - Duration in milliseconds
+   * @param {string|object} message - Notification message or options object
+   * @param {string} [type] - Notification type (success, error, info)
+   * @param {number} [duration] - Duration in milliseconds
+   * @param {string} [actionText] - Text for the action button
+   * @param {function} [onAction] - Callback for the action button
    */
-  static showNotification(message, type = 'info', duration = 5000) {
+  static showNotification(message, type = 'info', duration = 5000, actionText, onAction) {
+    // Support options object for flexibility
+    let msg = message;
+    let opts = {};
+    if (typeof message === 'object' && message !== null) {
+      opts = message;
+      msg = opts.message;
+      type = opts.type || type;
+      duration = opts.duration || duration;
+      actionText = opts.actionText || actionText;
+      onAction = opts.onAction || onAction;
+    }
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
@@ -59,8 +72,10 @@ class Utils {
       z-index: 10000;
       animation: slideIn 0.3s ease;
       max-width: 300px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     `;
-    
     // Set background color based on type
     switch (type) {
       case 'error':
@@ -72,21 +87,46 @@ class Utils {
       default:
         notification.style.background = '#3182ce';
     }
-    
-    notification.textContent = message;
+    // Message span
+    const msgSpan = document.createElement('span');
+    msgSpan.textContent = msg;
+    notification.appendChild(msgSpan);
+    // Action button
+    if (actionText && typeof onAction === 'function') {
+      const actionBtn = document.createElement('button');
+      actionBtn.textContent = actionText;
+      actionBtn.style.cssText = `
+        margin-left: 10px;
+        background: rgba(255,255,255,0.15);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 6px 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      `;
+      actionBtn.onmouseover = () => { actionBtn.style.background = 'rgba(255,255,255,0.25)'; };
+      actionBtn.onmouseout = () => { actionBtn.style.background = 'rgba(255,255,255,0.15)'; };
+      actionBtn.onclick = () => {
+        if (typeof onAction === 'function') onAction();
+        if (notification.parentNode) notification.parentNode.removeChild(notification);
+      };
+      notification.appendChild(actionBtn);
+    }
     document.body.appendChild(notification);
-    
-    // Remove after specified duration
-    setTimeout(() => {
-      notification.style.animation = 'slideOut 0.3s ease';
+    // Remove after specified duration (unless action button is present)
+    if (!actionText) {
       setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 300);
-    }, duration);
-    
-    console.log(`${type.toUpperCase()}: ${message}`);
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 300);
+      }, duration);
+    }
+    console.log(`${type.toUpperCase()}: ${msg}`);
   }
 
   /**
