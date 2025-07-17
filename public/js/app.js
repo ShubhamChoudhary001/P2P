@@ -328,6 +328,7 @@ class P2PFileSharing {
   }
 
   async startFileTransfer(isSender) {
+    console.log('>>> Entered startFileTransfer', { isSender });
     // Force a full reset before starting a new transfer
     if (this.webrtcManager.fullReset) {
       await this.webrtcManager.fullReset();
@@ -414,6 +415,12 @@ class P2PFileSharing {
 
       if (shouldCreateOffer) {
         setTimeout(async () => {
+          console.log('Before createOffer:', {
+            hasPC: !!this.webrtcManager.pc,
+            signalingState: this.webrtcManager.pc?.signalingState,
+            connectionState: this.webrtcManager.pc?.connectionState,
+            iceConnectionState: this.webrtcManager.pc?.iceConnectionState
+          });
           console.log('🔄 About to call createOffer...');
           console.log('🔄 WebRTC state before offer:', {
             hasPC: !!this.webrtcManager.pc,
