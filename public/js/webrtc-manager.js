@@ -46,7 +46,14 @@ class WebRTCManager {
     } else {
       console.log('🌍 Using standard ICE configuration');
       return {
-        iceServers: this.config.ICE_SERVERS,
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
+        ],
         iceCandidatePoolSize: 20,
         bundlePolicy: 'balanced', // Changed from max-bundle to balanced for compatibility
         rtcpMuxPolicy: 'require',

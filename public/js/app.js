@@ -327,7 +327,11 @@ class P2PFileSharing {
     console.log('🔄 File transfer state reset');
   }
 
-  startFileTransfer(isSender) {
+  async startFileTransfer(isSender) {
+    // Force a full reset before starting a new transfer
+    if (this.webrtcManager.fullReset) {
+      await this.webrtcManager.fullReset();
+    }
     console.log(`🚀 Starting file transfer as ${isSender ? 'sender' : 'receiver'}`);
     console.log('🚀 Current state:', {
       deviceId: this.deviceId,
