@@ -492,39 +492,34 @@ class WebRTCManager {
       while (attempt <= maxRetries) {
         try {
           console.log(`🔄 Starting offer creation... (attempt ${attempt + 1})`);
-          console.log('🔍 Current state:', {
-            hasPC: !!this.pc,
-            signalingState: this.pc?.signalingState,
-            connectionState: this.pc?.connectionState,
-            iceConnectionState: this.pc?.iceConnectionState
-          });
-          // Check if we need a fresh connection
           if (!this.pc) {
-            console.log('🔄 No peer connection, creating new one...');
-            this.initializePeerConnection(this.isSender);
-          } else if (this.pc.signalingState !== 'stable') {
-            console.log('🔄 Signaling state not stable, resetting connection...');
-            await this.resetConnection();
+            console.warn('❌ No RTCPeerConnection exists before offer creation.');
+            return undefined;
           }
+          console.log('🔍 Offer creation state:', {
+            signalingState: this.pc.signalingState,
+            connectionState: this.pc.connectionState,
+            iceConnectionState: this.pc.iceConnectionState
+          });
           // Only create offer if signalingState is stable
-          if (this.pc.signalingState === 'stable') {
-            console.log('✅ Signaling state is stable, creating offer...');
-            console.log('🔧 Data channel state before offer:', {
-              hasDataChannel: !!this.dc,
-              dataChannelState: this.dc?.readyState || 'none'
-            });
-            offer = await this.pc.createOffer();
-            console.log('✅ Offer created successfully:', offer);
-            await this.pc.setLocalDescription(offer);
-            console.log('✅ Local description set successfully');
-            console.log('Created offer');
-            if (offer !== undefined && offer !== null) {
-              return offer;
-            } else {
-              console.warn(`❌ Offer was undefined or null on attempt ${attempt + 1}`);
-            }
+          if (this.pc.signalingState !== 'stable') {
+            console.warn(`❌ Cannot create offer: signalingState is '${this.pc.signalingState}', must be 'stable'. Skipping offer creation.`);
+            return undefined;
+          }
+          console.log('✅ Signaling state is stable, creating offer...');
+          console.log('🔧 Data channel state before offer:', {
+            hasDataChannel: !!this.dc,
+            dataChannelState: this.dc?.readyState || 'none'
+          });
+          offer = await this.pc.createOffer();
+          console.log('✅ Offer created successfully:', offer);
+          await this.pc.setLocalDescription(offer);
+          console.log('✅ Local description set successfully');
+          console.log('Created offer');
+          if (offer !== undefined && offer !== null) {
+            return offer;
           } else {
-            console.warn('❌ Signaling state not stable, skipping offer creation. State:', this.pc.signalingState);
+            console.warn(`❌ Offer was undefined or null on attempt ${attempt + 1}`);
           }
         } catch (error) {
           console.error(`❌ Error creating offer on attempt ${attempt + 1}:`, error);
