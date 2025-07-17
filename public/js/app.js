@@ -132,13 +132,13 @@ class P2PFileSharing {
       this.isConnected = true;
       this.uiManager.updateConnectionStatus(`Connected to ${peerId}`, 'connected');
       this.updateUI();
-      
-      // If we're not the sender, prepare to receive files
+      // Only the receiver (no files selected) should call startFileTransfer(false)
       if (!this.currentFiles) {
         console.log('📥 No files selected, starting as receiver');
         this.startFileTransfer(false);
       } else {
-        console.log('📤 Files selected, will start as sender when ready');
+        // Sender waits for user action (handleSendFile) to start transfer
+        console.log('📤 Files selected, waiting for user to initiate transfer as sender');
       }
     };
     
