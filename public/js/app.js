@@ -332,6 +332,14 @@ class P2PFileSharing {
     if (this.webrtcManager.fullReset) {
       await this.webrtcManager.fullReset();
     }
+    // Ensure peer connection is initialized before offer/answer logic
+    this.webrtcManager.initializePeerConnection(isSender);
+    console.log('After initializePeerConnection:', {
+      hasPC: !!this.webrtcManager.pc,
+      signalingState: this.webrtcManager.pc?.signalingState,
+      connectionState: this.webrtcManager.pc?.connectionState,
+      iceConnectionState: this.webrtcManager.pc?.iceConnectionState
+    });
     console.log(`🚀 Starting file transfer as ${isSender ? 'sender' : 'receiver'}`);
     console.log('🚀 Current state:', {
       deviceId: this.deviceId,
