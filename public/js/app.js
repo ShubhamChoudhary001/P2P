@@ -1052,6 +1052,15 @@ class P2PFileSharing {
       }
       
       if (data.type === 'offer') {
+        // Offer collision (glare) handling
+        if (this.webrtcManager.isCreatingOffer) {
+          console.warn('⚡ Glare detected: received offer while creating local offer. Rolling back and accepting remote offer.');
+          // Rollback local negotiation and accept remote offer
+          if (this.webrtcManager.pc.signalingState === 'have-local-offer') {
+            await this.webrtcManager.pc.setLocalDescription({ type: 'rollback' });
+            console.log('🔄 Rolled back local offer due to glare.');
+          }
+        }
         console.log('📥 Received offer, handling...');
         const answer = await this.webrtcManager.handleOffer(data);
         if (answer) {

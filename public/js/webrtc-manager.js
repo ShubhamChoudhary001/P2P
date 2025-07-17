@@ -128,7 +128,7 @@ class WebRTCManager {
     };
     
     if (isSender) {
-      console.log('🔧 Creating data channel on sender...');
+      console.log('🔧 [OFFERER] Creating data channel on sender...');
       try {
       // Optimized data channel configuration for maximum speed
       this.dc = this.pc.createDataChannel('file', {
@@ -138,7 +138,7 @@ class WebRTCManager {
         // Optimizations for high-speed transfers
           negotiated: false // Let WebRTC handle negotiation
         });
-        console.log('🔧 Data channel created on sender:', {
+        console.log('🔧 [OFFERER] Data channel created on sender:', {
           label: this.dc.label,
           id: this.dc.id,
           readyState: this.dc.readyState,
@@ -147,7 +147,7 @@ class WebRTCManager {
           maxRetransmits: this.dc.maxRetransmits,
           maxPacketLifeTime: this.dc.maxPacketLifeTime
         });
-        console.log('🔧 Data channel created on sender, setting up...');
+        console.log('🔧 [OFFERER] Data channel created on sender, setting up...');
       this.setupDataChannel(true);
       } catch (error) {
         console.error('❌ Error creating data channel:', error);
@@ -155,9 +155,10 @@ class WebRTCManager {
         throw error;
       }
     } else {
+      console.log('🔧 [ANSWERER] Waiting for ondatachannel event from offerer...');
       this.pc.ondatachannel = (e) => {
-        console.log('🔗 ondatachannel event fired on receiver');
-        console.log('🔗 Data channel details:', {
+        console.log('🔗 [ANSWERER] ondatachannel event fired on receiver');
+        console.log('🔗 [ANSWERER] Data channel details:', {
           label: e.channel.label,
           id: e.channel.id,
           readyState: e.channel.readyState,
@@ -166,15 +167,13 @@ class WebRTCManager {
           maxRetransmits: e.channel.maxRetransmits,
           maxPacketLifeTime: e.channel.maxPacketLifeTime
         });
-        console.log('🔗 Setting up data channel for receiver...');
-        
+        console.log('🔗 [ANSWERER] Setting up data channel for receiver...');
         // Store the data channel
         this.dc = e.channel;
-        
         // Set up the data channel immediately
         try {
         this.setupDataChannel(false);
-          console.log('🔗 Data channel setup completed for receiver');
+          console.log('🔗 [ANSWERER] Data channel setup completed for receiver');
         } catch (error) {
           console.error('❌ Error setting up data channel for receiver:', error);
         }
