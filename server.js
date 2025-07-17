@@ -743,8 +743,7 @@ app.get('/admin/feedback', requireAuth, async (req, res) => {
             </div>
           </div>
           <div class="feedback-list">
-            ${feedbacks.map(feedback => `
-              <div class="feedback-item">
+            ${feedbacks.map(feedback => `              <div class="feedback-item">
                 <div class="feedback-header">
                   <div class="feedback-meta">
                     <div class="feedback-name">${feedback.name}</div>
@@ -768,7 +767,6 @@ app.get('/admin/feedback', requireAuth, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
-
 // Store connected devices and their connections
 const devices = new Map(); // deviceId -> socket
 const deviceConnections = new Map(); // deviceId -> connectedDeviceId
@@ -926,3 +924,4 @@ server.listen(PORT, () => console.log(`
 📱 Device management enabled
 🔗 WebRTC signaling ready
 `));
+

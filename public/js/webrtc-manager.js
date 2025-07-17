@@ -473,79 +473,78 @@ class WebRTCManager {
    * Create and send offer
    * @returns {Promise<RTCSessionDescription>} The created offer
    */
-  async createOffer() {
+  async createOffer(maxRetries = 2) {
     if (this.isCreatingOffer) {
       console.log('Offer creation already in progress, skipping.');
       return undefined;
     }
     
     this.isCreatingOffer = true;
-    
+    let attempt = 0;
+    let offer = undefined;
     try {
-      console.log('🔄 Starting offer creation...');
-      console.log('🔍 Current state:', {
-        hasPC: !!this.pc,
-        signalingState: this.pc?.signalingState,
-        connectionState: this.pc?.connectionState,
-        iceConnectionState: this.pc?.iceConnectionState
-      });
-      
-      // Check if we need a fresh connection
-      if (!this.pc) {
-        console.log('🔄 No peer connection, creating new one...');
-        this.initializePeerConnection(this.isSender);
-      } else if (this.pc.signalingState !== 'stable') {
-        console.log('🔄 Signaling state not stable, resetting connection...');
-        await this.resetConnection();
-      }
-      
-      // Only create offer if signalingState is stable
-      if (this.pc.signalingState === 'stable') {
-        console.log('✅ Signaling state is stable, creating offer...');
-        console.log('🔧 Data channel state before offer:', {
-          hasDataChannel: !!this.dc,
-          dataChannelState: this.dc?.readyState || 'none'
-        });
-      
-      const offer = await this.pc.createOffer();
-        console.log('✅ Offer created successfully:', offer);
-      await this.pc.setLocalDescription(offer);
-        console.log('✅ Local description set successfully');
-      console.log('Created offer');
-      return offer;
-      } else {
-        console.warn('❌ Signaling state not stable, skipping offer creation. State:', this.pc.signalingState);
-        return undefined;
-      }
-    } catch (error) {
-      console.error('❌ Error creating offer:', error);
-      // Handle specific SDP errors by recreating the connection
-      if (error.message.includes('SDP does not match') || 
-          error.message.includes('InvalidModificationError') ||
-          error.message.includes('BUNDLE group') ||
-          error.message.includes('max-bundle') ||
-          error.message.includes('order of m-lines')) {
-        console.log('🔄 SDP error detected, recreating connection...');
-        await this.forceReset();
-        
-        // Retry once with fresh connection
+      while (attempt <= maxRetries) {
         try {
-          console.log('🔄 Retrying offer creation after reset...');
-          if (this.pc.signalingState === 'stable') {
-          const offer = await this.pc.createOffer();
-          await this.pc.setLocalDescription(offer);
-            console.log('✅ Created offer after reset');
-          return offer;
-          } else {
-            console.warn('❌ Signaling state not stable after reset, skipping offer creation. State:', this.pc.signalingState);
-            return undefined;
+          console.log(`🔄 Starting offer creation... (attempt ${attempt + 1})`);
+          console.log('🔍 Current state:', {
+            hasPC: !!this.pc,
+            signalingState: this.pc?.signalingState,
+            connectionState: this.pc?.connectionState,
+            iceConnectionState: this.pc?.iceConnectionState
+          });
+          // Check if we need a fresh connection
+          if (!this.pc) {
+            console.log('🔄 No peer connection, creating new one...');
+            this.initializePeerConnection(this.isSender);
+          } else if (this.pc.signalingState !== 'stable') {
+            console.log('🔄 Signaling state not stable, resetting connection...');
+            await this.resetConnection();
           }
-        } catch (retryError) {
-          console.error('❌ Error creating offer after reset:', retryError);
-          throw retryError;
+          // Only create offer if signalingState is stable
+          if (this.pc.signalingState === 'stable') {
+            console.log('✅ Signaling state is stable, creating offer...');
+            console.log('🔧 Data channel state before offer:', {
+              hasDataChannel: !!this.dc,
+              dataChannelState: this.dc?.readyState || 'none'
+            });
+            offer = await this.pc.createOffer();
+            console.log('✅ Offer created successfully:', offer);
+            await this.pc.setLocalDescription(offer);
+            console.log('✅ Local description set successfully');
+            console.log('Created offer');
+            if (offer !== undefined && offer !== null) {
+              return offer;
+            } else {
+              console.warn(`❌ Offer was undefined or null on attempt ${attempt + 1}`);
+            }
+          } else {
+            console.warn('❌ Signaling state not stable, skipping offer creation. State:', this.pc.signalingState);
+          }
+        } catch (error) {
+          console.error(`❌ Error creating offer on attempt ${attempt + 1}:`, error);
+          // Handle specific SDP errors by recreating the connection
+          if (error.message && (
+            error.message.includes('SDP does not match') || 
+            error.message.includes('InvalidModificationError') ||
+            error.message.includes('BUNDLE group') ||
+            error.message.includes('max-bundle') ||
+            error.message.includes('order of m-lines'))
+          ) {
+            console.log('🔄 SDP error detected, recreating connection...');
+            await this.forceReset();
+          } else {
+            // For other errors, just log and continue
+            if (attempt === maxRetries) throw error;
+          }
+        }
+        attempt++;
+        if (attempt <= maxRetries) {
+          console.log(`🔁 Retrying offer creation in 300ms (attempt ${attempt + 1})...`);
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
-      throw error;
+      // If we reach here, all attempts failed
+      return undefined;
     } finally {
       this.isCreatingOffer = false;
     }

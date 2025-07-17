@@ -339,12 +339,14 @@ class P2PFileSharing {
     // Prevent multiple simultaneous file transfer attempts
     if (this.fileTransferState.isTransferring) {
       console.log('⚠️ File transfer already in progress, skipping new attempt');
+      this.uiManager.showError('A file transfer is already in progress. Please wait for it to finish.');
       return;
     }
     
     // Prevent multiple simultaneous connection attempts
     if (this.connectionAttemptInProgress) {
       console.log('⚠️ Connection attempt already in progress, skipping new attempt');
+      this.uiManager.showError('A connection attempt is already in progress. Please wait.');
       return;
     }
     
@@ -417,7 +419,14 @@ class P2PFileSharing {
               // File transfer will start automatically when data channel opens
             } else {
               console.warn('startFileTransfer: Offer was undefined or null, skipping send. This can happen if the connection was reset or cancelled.', { peerId: this.peerId, offer });
-              // No UI error shown, as this is not a user-facing problem if transfer works
+              this.uiManager.showError('Failed to create a connection offer after several attempts. Resetting connection. Please try again.');
+              if (this.webrtcManager.fullReset) {
+                this.webrtcManager.fullReset();
+              } else if (this.webrtcManager.forceResetConnectionState) {
+                this.webrtcManager.forceResetConnectionState();
+              }
+              this.connectionAttemptInProgress = false;
+              return;
             }
           } catch (error) {
             console.error('❌ Error creating offer:', error);
@@ -441,6 +450,9 @@ class P2PFileSharing {
               if (offer) {
                 console.log('✅ Sending forced offer to peer');
                 this.socketManager.sendSignal(this.peerId, offer);
+              } else {
+                this.uiManager.showError('Failed to create a connection offer (timeout). Please try again.');
+                this.connectionAttemptInProgress = false;
               }
             } catch (error) {
               console.error('❌ Error creating forced offer:', error);
@@ -458,6 +470,7 @@ class P2PFileSharing {
       if (this.connectionAttemptInProgress) {
         console.log('⚠️ Connection attempt flag stuck, resetting...');
         this.connectionAttemptInProgress = false;
+        this.uiManager.showError('Connection attempt timed out. Please try again.');
       }
     }, 20000); // 20 second safety timeout
   }
