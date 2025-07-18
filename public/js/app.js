@@ -132,13 +132,13 @@ class P2PFileSharing {
       this.isConnected = true;
       this.uiManager.updateConnectionStatus(`Connected to ${peerId}`, 'connected');
       this.updateUI();
-      // Only the receiver (no files selected) should call startFileTransfer(false)
+      
+      // If we're not the sender, prepare to receive files
       if (!this.currentFiles) {
         console.log('📥 No files selected, starting as receiver');
         this.startFileTransfer(false);
       } else {
-        // Sender waits for user action (handleSendFile) to start transfer
-        console.log('📤 Files selected, waiting for user to initiate transfer as sender');
+        console.log('📤 Files selected, will start as sender when ready');
       }
     };
     
@@ -210,24 +210,6 @@ class P2PFileSharing {
       if (state === 'connected' || state === 'completed') {
         this.detectConnectionType();
       }
-    };
-    this.webrtcManager.onDataChannelError = (error, state) => {
-      this.uiManager.showError(
-        `Connection error: Data channel is ${state}. The transfer failed. Please check your network and try again.`,
-        {
-          action: 'retry',
-          onAction: () => this.retryFileTransfer()
-        }
-      );
-    };
-    this.webrtcManager.onDataChannelClosed = (state) => {
-      this.uiManager.showError(
-        `Connection closed: Data channel is ${state}. The transfer was interrupted. You can try to reconnect and resend.`,
-        {
-          action: 'reconnect',
-          onAction: () => this.retryFileTransfer()
-        }
-      );
     };
   }
 
@@ -327,33 +309,7 @@ class P2PFileSharing {
     console.log('🔄 File transfer state reset');
   }
 
-  async startFileTransfer(isSender) {
-    console.log('>>> Entered startFileTransfer', { isSender });
-    // Prevent multiple simultaneous file transfer attempts
-    if (this.fileTransferState.isTransferring) {
-      console.log('⚠️ File transfer already in progress, skipping new attempt');
-      this.uiManager.showError('A file transfer is already in progress. Please wait for it to finish.');
-      return;
-    }
-    // Prevent multiple simultaneous connection attempts
-    if (this.connectionAttemptInProgress) {
-      console.log('⚠️ Connection attempt already in progress, skipping new attempt');
-      this.uiManager.showError('A connection attempt is already in progress. Please wait.');
-      return;
-    }
-    this.connectionAttemptInProgress = true;
-    // Force a full reset before starting a new transfer
-    if (this.webrtcManager.fullReset) {
-      await this.webrtcManager.fullReset();
-    }
-    // Ensure peer connection is initialized before offer/answer logic
-    this.webrtcManager.initializePeerConnection(isSender);
-    console.log('After initializePeerConnection:', {
-      hasPC: !!this.webrtcManager.pc,
-      signalingState: this.webrtcManager.pc?.signalingState,
-      connectionState: this.webrtcManager.pc?.connectionState,
-      iceConnectionState: this.webrtcManager.pc?.iceConnectionState
-    });
+  startFileTransfer(isSender) {
     console.log(`🚀 Starting file transfer as ${isSender ? 'sender' : 'receiver'}`);
     console.log('🚀 Current state:', {
       deviceId: this.deviceId,
@@ -361,69 +317,129 @@ class P2PFileSharing {
       isConnected: this.isConnected,
       hasFiles: !!this.currentFiles
     });
-    // Device ID comparison to determine offerer
-    const shouldCreateOffer = this.deviceId.localeCompare(this.peerId) < 0;
-    console.log('🔍 Device ID comparison:', {
-      deviceId: this.deviceId,
-      peerId: this.peerId,
-      shouldCreateOffer,
-      comparison: this.deviceId.localeCompare(this.peerId)
-    });
-    if (shouldCreateOffer) {
-      // Only one offer creation attempt, guarded by isCreatingOffer
-      if (this.webrtcManager.isCreatingOffer) {
-        console.log('⚠️ Offer creation already in progress, skipping.');
-        return;
-      }
-      try {
-        console.log('Before createOffer:', {
-          hasPC: !!this.webrtcManager.pc,
-          signalingState: this.webrtcManager.pc?.signalingState,
-          connectionState: this.webrtcManager.pc?.connectionState,
-          iceConnectionState: this.webrtcManager.pc?.iceConnectionState
-        });
-        console.log('🔄 About to call createOffer...');
-        const offer = await this.webrtcManager.createOffer();
-        console.log('🔄 createOffer returned:', offer);
-        if (offer !== undefined && offer !== null) {
-          console.log('✅ Sending valid offer to peer');
-          this.socketManager.sendSignal(this.peerId, offer);
-          // File transfer will start automatically when data channel opens
-        } else {
-          console.warn('startFileTransfer: Offer was undefined or null, skipping send. This can happen if the connection was reset or cancelled.', { peerId: this.peerId, offer });
-          this.uiManager.showError({
-            message: 'Failed to create a connection offer after several attempts. Resetting connection. Please try again.',
-            actionText: 'Retry',
-            onAction: () => {
-              this.startFileTransfer(isSender);
-            }
-          });
-          if (this.webrtcManager.fullReset) {
-            this.webrtcManager.fullReset();
-          } else if (this.webrtcManager.forceResetConnectionState) {
-            this.webrtcManager.forceResetConnectionState();
-          }
-          this.connectionAttemptInProgress = false;
-          return;
-        }
-      } catch (error) {
-        console.error('❌ Error creating offer:', error);
-        this.uiManager.showError('Failed to create connection');
-        // Reset connection state on error
-        this.webrtcManager.forceResetConnectionState();
-        this.connectionAttemptInProgress = false;
-        return;
-      }
-    } else {
-      // Answerer: just wait for offer
-      console.log('📥 Waiting for peer to create offer...');
+    
+    // Prevent multiple simultaneous file transfer attempts
+    if (this.fileTransferState.isTransferring) {
+      console.log('⚠️ File transfer already in progress, skipping new attempt');
+      return;
     }
+    
+    // Prevent multiple simultaneous connection attempts
+    if (this.connectionAttemptInProgress) {
+      console.log('⚠️ Connection attempt already in progress, skipping new attempt');
+      return;
+    }
+    
+    this.connectionAttemptInProgress = true;
+    
+    // Check if we're already in a connection state
+    if (this.webrtcManager.connectionState === 'connecting' || this.webrtcManager.connectionState === 'connected') {
+      console.log('⚠️ Connection already in progress or connected, attempting force reset...');
+      
+      // Force reset if stuck in connecting state for too long
+      if (this.webrtcManager.connectionState === 'connecting') {
+        console.log('🔄 Force resetting stuck connection state...');
+        this.webrtcManager.forceResetConnectionState();
+      } else {
+        // Check if the data channel is actually ready for file transfer
+        const dataChannelReady = this.webrtcManager.dc && this.webrtcManager.dc.readyState === 'open';
+        console.log('⚠️ Connection is connected, checking data channel readiness:', {
+          hasDataChannel: !!this.webrtcManager.dc,
+          dataChannelState: this.webrtcManager.dc?.readyState || 'none',
+          dataChannelReady: dataChannelReady
+        });
+        
+        if (dataChannelReady) {
+          console.log('✅ Data channel is ready, proceeding with file transfer');
+          // Continue with file transfer setup
+        } else {
+          console.log('🔄 Data channel not ready, forcing connection reset');
+          this.webrtcManager.forceResetConnectionState();
+        }
+      }
+    }
+    
+    // Reset file transfer state for new transfer
+    this.resetFileTransferState();
+    
+    // Force reset the WebRTC connection to ensure stable state
+    this.webrtcManager.close();
+    
+    // Wait a bit to ensure complete cleanup
+    setTimeout(() => {
+      console.log('🔄 Initializing peer connection as', isSender ? 'sender' : 'receiver');
+      this.webrtcManager.initializePeerConnection(isSender);
+
+      // Determine who creates the offer based on device ID (lower ID creates offer)
+      // Use localeCompare for proper string comparison to avoid deadlocks
+      const shouldCreateOffer = this.deviceId.localeCompare(this.peerId) < 0;
+      console.log('🔍 Device ID comparison:', {
+        deviceId: this.deviceId, 
+        peerId: this.peerId, 
+        shouldCreateOffer,
+        comparison: this.deviceId.localeCompare(this.peerId)
+      });
+
+      if (shouldCreateOffer) {
+        setTimeout(async () => {
+          console.log('🔄 About to call createOffer...');
+          console.log('🔄 WebRTC state before offer:', {
+            hasPC: !!this.webrtcManager.pc,
+            signalingState: this.webrtcManager.pc?.signalingState,
+            connectionState: this.webrtcManager.pc?.connectionState,
+            hasDataChannel: !!this.webrtcManager.dc
+          });
+          
+          try {
+            const offer = await this.webrtcManager.createOffer();
+            console.log('🔄 createOffer returned:', offer);
+            if (offer !== undefined && offer !== null) {
+              console.log('✅ Sending valid offer to peer');
+              this.socketManager.sendSignal(this.peerId, offer);
+              // File transfer will start automatically when data channel opens
+            } else {
+              console.warn('startFileTransfer: Offer was undefined or null, skipping send. This can happen if the connection was reset or cancelled.', { peerId: this.peerId, offer });
+              // No UI error shown, as this is not a user-facing problem if transfer works
+            }
+          } catch (error) {
+            console.error('❌ Error creating offer:', error);
+            this.uiManager.showError('Failed to create connection');
+            // Reset connection state on error
+            this.webrtcManager.forceResetConnectionState();
+            // Reset connection attempt flag
+            this.connectionAttemptInProgress = false;
+          }
+        }, 500); // Increased delay to 500ms to allow connection to stabilize
+      } else {
+        console.log('📥 Waiting for peer to create offer...');
+        
+        // Add a fallback timeout to prevent deadlock
+        // If no offer is received within 3 seconds, force create an offer
+        setTimeout(async () => {
+          if (this.webrtcManager.connectionState === 'connecting' && !this.webrtcManager.pc?.currentRemoteDescription) {
+            console.log('⚠️ No offer received within timeout, forcing offer creation to prevent deadlock');
+            try {
+              const offer = await this.webrtcManager.createOffer();
+              if (offer) {
+                console.log('✅ Sending forced offer to peer');
+                this.socketManager.sendSignal(this.peerId, offer);
+              }
+            } catch (error) {
+              console.error('❌ Error creating forced offer:', error);
+              this.webrtcManager.forceResetConnectionState();
+              // Reset connection attempt flag
+              this.connectionAttemptInProgress = false;
+            }
+          }
+        }, 3000); // 3 second timeout
+      }
+    }, 100); // 100ms delay to ensure cleanup
+    
     // Add a safety timeout to reset connection attempt flag
     setTimeout(() => {
       if (this.connectionAttemptInProgress) {
         console.log('⚠️ Connection attempt flag stuck, resetting...');
         this.connectionAttemptInProgress = false;
-        this.uiManager.showError('Connection attempt timed out. Please try again.');
       }
     }, 20000); // 20 second safety timeout
   }
@@ -995,15 +1011,6 @@ class P2PFileSharing {
       }
       
       if (data.type === 'offer') {
-        // Offer collision (glare) handling
-        if (this.webrtcManager.isCreatingOffer) {
-          console.warn('⚡ Glare detected: received offer while creating local offer. Rolling back and accepting remote offer.');
-          // Rollback local negotiation and accept remote offer
-          if (this.webrtcManager.pc.signalingState === 'have-local-offer') {
-            await this.webrtcManager.pc.setLocalDescription({ type: 'rollback' });
-            console.log('🔄 Rolled back local offer due to glare.');
-          }
-        }
         console.log('📥 Received offer, handling...');
         const answer = await this.webrtcManager.handleOffer(data);
         if (answer) {
@@ -1287,17 +1294,6 @@ class P2PFileSharing {
     console.log('✅ File finalization completed successfully - Complete file received');
   }
 }
-
-// Add a retryFileTransfer method to the P2PFileSharing class
-P2PFileSharing.prototype.retryFileTransfer = function() {
-  this.uiManager.showInfo('Reconnecting and retrying file transfer...');
-  // Reset and re-initiate the connection and file transfer
-  this.webrtcManager.fullReset().then(() => {
-    setTimeout(() => {
-      this.startFileTransfer(true);
-    }, 500);
-  });
-};
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {

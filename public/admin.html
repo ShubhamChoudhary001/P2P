@@ -39,7 +39,6 @@
       font-weight: 800;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       -webkit-background-clip: text;
-      background-clip: text;
       -webkit-text-fill-color: transparent;
       margin-bottom: 8px;
     }
@@ -380,19 +379,16 @@
             <div class="stat-label">Feature Requests</div>
           </div>
         </div>
-        <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
-          <button class="btn" id="deleteAllBtn" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">🗑️ Delete All Feedbacks</button>
-        </div>
+        
         <div class="feedback-list">
           ${feedbacks.map(feedback => `
-            <div class="feedback-item" data-id="${feedback.id}">
+            <div class="feedback-item">
               <div class="feedback-header">
                 <div class="feedback-meta">
                   <div class="feedback-name">${feedback.name}</div>
                   <div class="feedback-email">${feedback.email}</div>
                 </div>
                 <div class="feedback-type ${feedback.type}">${feedback.type}</div>
-                <button class="btn" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; font-size: 0.9rem; padding: 6px 14px; margin-left: 10px;" onclick="deleteFeedback('${feedback.id}')">🗑️ Delete</button>
               </div>
               <div class="feedback-time">${new Date(feedback.timestamp).toLocaleString()}</div>
               <div class="feedback-message">${feedback.message}</div>
@@ -401,52 +397,7 @@
           `).reverse().join('')}
         </div>
       `;
-
-      // Attach delete all handler
-      const deleteAllBtn = document.getElementById('deleteAllBtn');
-      if (deleteAllBtn) {
-        deleteAllBtn.onclick = async function() {
-          if (!confirm('Are you sure you want to delete ALL feedbacks? This cannot be undone.')) return;
-          deleteAllBtn.disabled = true;
-          deleteAllBtn.innerText = 'Deleting...';
-          try {
-            const res = await fetch(`${SERVER_URL}/api/feedback`, { method: 'DELETE', credentials: 'include' });
-            const data = await res.json();
-            if (data.success) {
-              alert('All feedbacks deleted.');
-              loadFeedback();
-            } else {
-              alert('Failed to delete all feedbacks: ' + (data.error || 'Unknown error'));
-            }
-          } catch (e) {
-            alert('Network error while deleting all feedbacks.');
-          } finally {
-            deleteAllBtn.disabled = false;
-            deleteAllBtn.innerText = '🗑️ Delete All Feedbacks';
-          }
-        };
-      }
     }
-
-    // Delete single feedback function
-    async function deleteFeedback(id) {
-      if (!confirm('Delete this feedback?')) return;
-      try {
-        const res = await fetch(`${SERVER_URL}/api/feedback/${id}`, { method: 'DELETE', credentials: 'include' });
-        const data = await res.json();
-        if (data.success) {
-          alert('Feedback deleted.');
-          loadFeedback();
-        } else {
-          alert('Failed to delete feedback: ' + (data.error || 'Unknown error'));
-        }
-      } catch (e) {
-        alert('Network error while deleting feedback.');
-      }
-    }
-
-    // Expose deleteFeedback globally
-    window.deleteFeedback = deleteFeedback;
     
     // Load feedback on page load
     document.addEventListener('DOMContentLoaded', loadFeedback);

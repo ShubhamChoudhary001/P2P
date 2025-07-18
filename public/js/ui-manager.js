@@ -399,20 +399,10 @@ class UIManager {
 
   /**
    * Show error message
-   * @param {string|object} message - Error message or options object
+   * @param {string} message - Error message
    */
   showError(message) {
-    if (typeof message === 'object' && message !== null) {
-      // Support { message, action, actionText }
-      Utils.showNotification({
-        message: message.message,
-        type: 'error',
-        actionText: message.actionText,
-        onAction: message.onAction
-      });
-    } else {
-      Utils.showNotification(message, 'error');
-    }
+    Utils.showNotification(message, 'error');
   }
 
   /**

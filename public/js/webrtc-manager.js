@@ -46,14 +46,7 @@ class WebRTCManager {
     } else {
       console.log('🌍 Using standard ICE configuration');
       return {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          {
-            urls: 'turn:global.relay.twilio.com:3478?transport=udp',
-            username: 'testuser',
-            credential: 'testpassword'
-          }
-        ],
+        iceServers: this.config.ICE_SERVERS,
         iceCandidatePoolSize: 20,
         bundlePolicy: 'balanced', // Changed from max-bundle to balanced for compatibility
         rtcpMuxPolicy: 'require',
@@ -128,7 +121,7 @@ class WebRTCManager {
     };
     
     if (isSender) {
-      console.log('🔧 [OFFERER] Creating data channel on sender...');
+      console.log('🔧 Creating data channel on sender...');
       try {
       // Optimized data channel configuration for maximum speed
       this.dc = this.pc.createDataChannel('file', {
@@ -138,7 +131,7 @@ class WebRTCManager {
         // Optimizations for high-speed transfers
           negotiated: false // Let WebRTC handle negotiation
         });
-        console.log('🔧 [OFFERER] Data channel created on sender:', {
+        console.log('🔧 Data channel created on sender:', {
           label: this.dc.label,
           id: this.dc.id,
           readyState: this.dc.readyState,
@@ -147,7 +140,7 @@ class WebRTCManager {
           maxRetransmits: this.dc.maxRetransmits,
           maxPacketLifeTime: this.dc.maxPacketLifeTime
         });
-        console.log('🔧 [OFFERER] Data channel created on sender, setting up...');
+        console.log('🔧 Data channel created on sender, setting up...');
       this.setupDataChannel(true);
       } catch (error) {
         console.error('❌ Error creating data channel:', error);
@@ -155,10 +148,9 @@ class WebRTCManager {
         throw error;
       }
     } else {
-      console.log('🔧 [ANSWERER] Waiting for ondatachannel event from offerer...');
       this.pc.ondatachannel = (e) => {
-        console.log('🔗 [ANSWERER] ondatachannel event fired on receiver');
-        console.log('🔗 [ANSWERER] Data channel details:', {
+        console.log('🔗 ondatachannel event fired on receiver');
+        console.log('🔗 Data channel details:', {
           label: e.channel.label,
           id: e.channel.id,
           readyState: e.channel.readyState,
@@ -167,13 +159,15 @@ class WebRTCManager {
           maxRetransmits: e.channel.maxRetransmits,
           maxPacketLifeTime: e.channel.maxPacketLifeTime
         });
-        console.log('🔗 [ANSWERER] Setting up data channel for receiver...');
+        console.log('🔗 Setting up data channel for receiver...');
+        
         // Store the data channel
         this.dc = e.channel;
+        
         // Set up the data channel immediately
         try {
         this.setupDataChannel(false);
-          console.log('🔗 [ANSWERER] Data channel setup completed for receiver');
+          console.log('🔗 Data channel setup completed for receiver');
         } catch (error) {
           console.error('❌ Error setting up data channel for receiver:', error);
         }
@@ -412,10 +406,6 @@ class WebRTCManager {
       }
       
       this.connectionState = 'failed';
-      // Notify app for user-friendly error handling
-      if (this.onDataChannelError) {
-        this.onDataChannelError(error, this.dc ? this.dc.readyState : 'unknown');
-      }
     };
 
     this.dc.onclose = () => {
@@ -438,10 +428,6 @@ class WebRTCManager {
       
       this.connectionState = 'disconnected';
       this.stopPerformanceMonitoring();
-      // Notify app for user-friendly error handling
-      if (this.onDataChannelClosed) {
-        this.onDataChannelClosed(this.dc ? this.dc.readyState : 'unknown');
-      }
     };
     
     // Optimized buffer management
@@ -479,73 +465,79 @@ class WebRTCManager {
    * Create and send offer
    * @returns {Promise<RTCSessionDescription>} The created offer
    */
-  async createOffer(maxRetries = 2) {
+  async createOffer() {
     if (this.isCreatingOffer) {
       console.log('Offer creation already in progress, skipping.');
       return undefined;
     }
     
     this.isCreatingOffer = true;
-    let attempt = 0;
-    let offer = undefined;
+    
     try {
-      while (attempt <= maxRetries) {
+      console.log('🔄 Starting offer creation...');
+      console.log('🔍 Current state:', {
+        hasPC: !!this.pc,
+        signalingState: this.pc?.signalingState,
+        connectionState: this.pc?.connectionState,
+        iceConnectionState: this.pc?.iceConnectionState
+      });
+      
+      // Check if we need a fresh connection
+      if (!this.pc) {
+        console.log('🔄 No peer connection, creating new one...');
+        this.initializePeerConnection(this.isSender);
+      } else if (this.pc.signalingState !== 'stable') {
+        console.log('🔄 Signaling state not stable, resetting connection...');
+        await this.resetConnection();
+      }
+      
+      // Only create offer if signalingState is stable
+      if (this.pc.signalingState === 'stable') {
+        console.log('✅ Signaling state is stable, creating offer...');
+        console.log('🔧 Data channel state before offer:', {
+          hasDataChannel: !!this.dc,
+          dataChannelState: this.dc?.readyState || 'none'
+        });
+      
+      const offer = await this.pc.createOffer();
+        console.log('✅ Offer created successfully:', offer);
+      await this.pc.setLocalDescription(offer);
+        console.log('✅ Local description set successfully');
+      console.log('Created offer');
+      return offer;
+      } else {
+        console.warn('❌ Signaling state not stable, skipping offer creation. State:', this.pc.signalingState);
+        return undefined;
+      }
+    } catch (error) {
+      console.error('❌ Error creating offer:', error);
+      // Handle specific SDP errors by recreating the connection
+      if (error.message.includes('SDP does not match') || 
+          error.message.includes('InvalidModificationError') ||
+          error.message.includes('BUNDLE group') ||
+          error.message.includes('max-bundle') ||
+          error.message.includes('order of m-lines')) {
+        console.log('🔄 SDP error detected, recreating connection...');
+        await this.forceReset();
+        
+        // Retry once with fresh connection
         try {
-          console.log(`🔄 Starting offer creation... (attempt ${attempt + 1})`);
-          if (!this.pc) {
-            console.warn('❌ No RTCPeerConnection exists before offer creation.');
-            return undefined;
-          }
-          console.log('🔍 Offer creation state:', {
-            signalingState: this.pc.signalingState,
-            connectionState: this.pc.connectionState,
-            iceConnectionState: this.pc.iceConnectionState
-          });
-          // Only create offer if signalingState is stable
-          if (this.pc.signalingState !== 'stable') {
-            console.warn(`❌ Cannot create offer: signalingState is '${this.pc.signalingState}', must be 'stable'. Skipping offer creation.`);
-            return undefined;
-          }
-          console.log('✅ Signaling state is stable, creating offer...');
-          console.log('🔧 Data channel state before offer:', {
-            hasDataChannel: !!this.dc,
-            dataChannelState: this.dc?.readyState || 'none'
-          });
-          offer = await this.pc.createOffer();
-          console.log('✅ Offer created successfully:', offer);
+          console.log('🔄 Retrying offer creation after reset...');
+          if (this.pc.signalingState === 'stable') {
+          const offer = await this.pc.createOffer();
           await this.pc.setLocalDescription(offer);
-          console.log('✅ Local description set successfully');
-          console.log('Created offer');
-          if (offer !== undefined && offer !== null) {
-            return offer;
+            console.log('✅ Created offer after reset');
+          return offer;
           } else {
-            console.warn(`❌ Offer was undefined or null on attempt ${attempt + 1}`);
+            console.warn('❌ Signaling state not stable after reset, skipping offer creation. State:', this.pc.signalingState);
+            return undefined;
           }
-        } catch (error) {
-          console.error(`❌ Error creating offer on attempt ${attempt + 1}:`, error);
-          // Handle specific SDP errors by recreating the connection
-          if (error.message && (
-            error.message.includes('SDP does not match') || 
-            error.message.includes('InvalidModificationError') ||
-            error.message.includes('BUNDLE group') ||
-            error.message.includes('max-bundle') ||
-            error.message.includes('order of m-lines'))
-          ) {
-            console.log('🔄 SDP error detected, recreating connection...');
-            await this.forceReset();
-          } else {
-            // For other errors, just log and continue
-            if (attempt === maxRetries) throw error;
-          }
-        }
-        attempt++;
-        if (attempt <= maxRetries) {
-          console.log(`🔁 Retrying offer creation in 300ms (attempt ${attempt + 1})...`);
-          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (retryError) {
+          console.error('❌ Error creating offer after reset:', retryError);
+          throw retryError;
         }
       }
-      // If we reach here, all attempts failed
-      return undefined;
+      throw error;
     } finally {
       this.isCreatingOffer = false;
     }

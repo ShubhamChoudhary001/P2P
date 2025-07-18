@@ -3,25 +3,6 @@
  * Contains all settings, constants, and configuration values
  */
 
-// Device detection for mobile/iOS/iPad
-function isMobileOrTablet() {
-  return /iPad|iPhone|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
-function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
-
-// Default values
-let CHUNK_SIZE = 256 * 1024; // 64KB
-let MAX_BUFFERED_AMOUNT = 8 * 1024 * 1024; // 2MB
-
-// Lower values for mobile/iOS/iPad
-if (isMobileOrTablet() || isIOS()) {
-  CHUNK_SIZE = 128 * 1024; // 64KB
-  MAX_BUFFERED_AMOUNT = 8 * 1024 * 1024; // 2MB
-}
-
 const CONFIG = {
   // Server Configuration
   SERVER_URL: (() => {
@@ -53,8 +34,8 @@ const CONFIG = {
   ],
   
   // File Transfer Settings - Optimized for Maximum Speed
-  CHUNK_SIZE: CHUNK_SIZE,
-  MAX_BUFFERED_AMOUNT: MAX_BUFFERED_AMOUNT,
+  CHUNK_SIZE: 256 * 1024, // 512KB chunks (increased for higher throughput)
+  MAX_BUFFERED_AMOUNT: 8 * 1024 * 1024, // 16MB buffer limit (increased for higher throughput)
   MAX_SIGNALING_DATA_SIZE: 10000, // 10KB max signaling data
   
   // Performance Settings - Optimized for Maximum Speed
