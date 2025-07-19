@@ -21,35 +21,71 @@
     </div>
   </div>
   <div class="shuryLogo">
-    <img src="/src/logo.png" alt="SHURY" srcset="">
+    <img src="/src/logo.png" alt="SHURY" srcset="" id="shuryLogo">
   </div>
   <div class="container">
+    <button class="dark-toggle-btn" id="darkToggleBtn" title="Toggle dark mode" aria-label="Toggle dark mode" role="button">🌙</button>
     <div class="header-row">
       <div class="header-content">
         <h3 class="brand-name">SHU-RY</h3>
         <h1 class="app-title">ShareP2P</h1>
         <p class="subtitle">Secure peer-to-peer file sharing Platform</p>
+        <!-- Theme controls removed -->
       </div>
     </div>
     
     <!-- Connection Status -->
     <div class="connection-status status-disconnected" id="connectionStatus">
-      <div class="status-indicator"></div>
+      <div class="status-indicator modern-status" id="statusDot"></div>
       <span id="statusText">Disconnected</span>
     </div>
 
     <!-- Device Information -->
     <div class="device-info">
       <h3>Your Device</h3>
+      <div style="display:flex;align-items:center;gap:0.5em;position:relative;">
+        <span class="circular-progress-container" style="position:relative;display:inline-block;">
+          <svg id="circularProgress" width="64" height="64" viewBox="0 0 64 64" style="position:absolute;top:0;left:0;z-index:1;">
+            <defs>
+              <linearGradient id="circularGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#6a82fb"/>
+                <stop offset="100%" stop-color="#fc5c7d"/>
+              </linearGradient>
+              <linearGradient id="circularGradientDark" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#232526"/>
+                <stop offset="100%" stop-color="#fc5c7d"/>
+              </linearGradient>
+            </defs>
+            <circle class="circular-progress-bg" cx="32" cy="32" r="26" fill="none"/>
+            <circle class="circular-progress-bar" id="circularProgressBar" cx="32" cy="32" r="26" fill="none" stroke-dasharray="0 163.36"/>
+          </svg>
+          <span id="userAvatar" class="device-avatar" style="cursor:pointer;position:relative;z-index:2;display:flex;align-items:center;justify-content:center;width:64px;height:64px;font-size:2.2em;line-height:64px;">🖥️</span>
+        </span>
+        <button id="avatarPickerBtn" class="modern-btn" style="padding:0.3em 0.7em;font-size:1.1em;">🐺</button>
+        <div id="emojiPicker" style="display:none;position:absolute;z-index:2000;background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,0.12);padding:0.5em 0.7em;top:2.5em;left:2em;">
+          <span class="device-avatar" style="cursor:pointer;">🖥️</span>
+          <span class="device-avatar" style="cursor:pointer;">📱</span>
+          <span class="device-avatar" style="cursor:pointer;">💻</span>
+          <span class="device-avatar" style="cursor:pointer;">🦄</span>
+          <span class="device-avatar" style="cursor:pointer;">🐱</span>
+          <span class="device-avatar" style="cursor:pointer;">🐶</span>
+          <span class="device-avatar" style="cursor:pointer;">🐼</span>
+          <span class="device-avatar" style="cursor:pointer;">🦊</span>
+          <span class="device-avatar" style="cursor:pointer;">🐸</span>
+          <span class="device-avatar" style="cursor:pointer;">🐧</span>
+        </div>
+      </div>
       <div class="device-id" id="deviceId">Loading...</div>
       <div class="connected-devices" id="connectedDevices">
+        <span class="device-avatar">🖥️</span>
+        <span class="device-avatar">📱</span>
         <p>No devices connected</p>
       </div>
     </div>
 
     <!-- File Upload Section -->
-    <div class="file-input-wrapper">
-      <input type="file" id="fileInput" class="file-input" multiple />
+    <div class="file-input-wrapper" id="fileDropArea">
+      <input type="file" id="fileInput" class="file-input" multiple aria-label="Choose files to share" />
       <label for="fileInput" class="file-input-label" id="fileInputLabel">
         Choose a file to share
         <br><small>or drag and drop here</small>
@@ -59,16 +95,16 @@
 
     <!-- Action Buttons -->
     <div class="button-group">
-      <button id="sendBtn" class="btn btn-send" disabled>
+      <button id="sendBtn" class="btn btn-send modern-btn" disabled aria-label="Send file" role="button">
         <span class="icon">📤</span>Send File
       </button>
-      <button id="recvBtn" class="btn btn-receive">
+      <button id="recvBtn" class="btn btn-receive modern-btn" aria-label="Receive file" role="button">
         <span class="icon">📥</span>Receive File
       </button>
-      <button id="disconnectBtn" class="btn btn-disconnect hidden">
+      <button id="disconnectBtn" class="btn btn-disconnect hidden modern-btn" aria-label="Disconnect" role="button">
         <span class="icon">❌</span>Disconnect
       </button>
-      <button id="resetBtn" class="btn btn-reset hidden">
+      <button id="resetBtn" class="btn btn-reset hidden modern-btn" aria-label="Reset connection" role="button">
         <span class="icon">🔄</span>Reset Connection
       </button>
     </div>
@@ -93,7 +129,7 @@
         <span id="progressPercent">0%</span>
       </div>
       <div class="progress-bar">
-        <div class="progress-fill" id="progressFill"></div>
+        <div class="progress-fill modern-progress" id="progressFill"></div>
       </div>
     </div>
 
@@ -109,7 +145,7 @@
       <h3>💬 Send Feedback</h3>
       <p class="feedback-subtitle">Help us improve ShareP2P! Share your thoughts, suggestions, or report issues.</p>
       
-      <form id="feedbackForm" class="feedback-form" aria-label="Feedback form">
+      <form id="feedbackForm" class="feedback-form" aria-label="Feedback form" role="form">
         <div class="form-group">
           <label for="feedbackName" class="sr-only">Name</label>
           <input type="text" id="feedbackName" name="name" placeholder="Your name (optional)" maxlength="50" aria-describedby="nameHelp">
@@ -139,23 +175,24 @@
           </div>
           <div id="messageHelp" class="sr-only">Enter your feedback message (required)</div>
         </div>
-        <button type="submit" id="feedbackSubmit" class="btn btn-feedback" aria-describedby="submitHelp">
+        <button type="submit" id="feedbackSubmit" class="btn btn-feedback modern-btn" aria-describedby="submitHelp" aria-label="Send feedback" role="button">
           <span class="icon">📤</span>Send Feedback
         </button>
         <div id="submitHelp" class="sr-only">Click to submit your feedback</div>
       </form>
       
-      <div id="feedbackSuccess" class="feedback-success hidden">
+      <div id="feedbackSuccess" class="feedback-success hidden fade-in">
         <div class="success-icon">✅</div>
         <h4>Thank you!</h4>
         <p>Your feedback has been sent successfully. We'll review it and get back to you if needed.</p>
       </div>
       
-      <div id="feedbackError" class="feedback-error hidden">
+      <div id="feedbackError" class="feedback-error hidden fade-in">
         <div class="error-icon">❌</div>
         <h4>Oops!</h4>
         <p id="errorMessage">Something went wrong. Please try again.</p>
       </div>
+      <div class="modern-tooltip" id="modernTooltip" style="top:-2.5em;left:0;">This is a modern tooltip example! You can show/hide this with JS.</div>
     </div>
   </div>
  
@@ -173,8 +210,62 @@
     </div>
   </div>
 
-
-
+  <canvas id="confettiCanvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:999;display:none;"></canvas>
+  <script>
+    // Simple confetti animation
+    function launchConfetti() {
+      const canvas = document.getElementById('confettiCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.display = 'block';
+      const confettiCount = 120;
+      const confetti = [];
+      for (let i = 0; i < confettiCount; i++) {
+        confetti.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * -canvas.height,
+          r: 6 + Math.random() * 6,
+          d: 8 + Math.random() * 8,
+          color: `hsl(${Math.random()*360},90%,60%)`,
+          tilt: Math.random() * 10 - 10,
+          tiltAngle: 0,
+          tiltAngleIncrement: (Math.random() * 0.07) + 0.05
+        });
+      }
+      let frame = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        confetti.forEach(c => {
+          ctx.beginPath();
+          ctx.ellipse(c.x, c.y, c.r, c.r/2, c.tilt, 0, 2 * Math.PI);
+          ctx.fillStyle = c.color;
+          ctx.fill();
+        });
+      }
+      function update() {
+        confetti.forEach(c => {
+          c.y += Math.cos(frame/10 + c.d) + 2 + c.r/2;
+          c.x += Math.sin(frame/20) * 2;
+          c.tiltAngle += c.tiltAngleIncrement;
+          c.tilt = Math.sin(c.tiltAngle) * 15;
+        });
+      }
+      function animate() {
+        draw();
+        update();
+        frame++;
+        if (frame < 90) {
+          requestAnimationFrame(animate);
+        } else {
+          canvas.style.display = 'none';
+        }
+      }
+      animate();
+    }
+    // Example: call launchConfetti() when file sent or feedback success
+    // launchConfetti();
+  </script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   
     <!-- Load modular JavaScript files -->
@@ -196,6 +287,119 @@
       }
     }, 1600);
   });
+  </script>
+  <script>
+    // Dark mode toggle logic
+    const darkToggleBtn = document.getElementById('darkToggleBtn');
+    const body = document.body;
+    const shuryLogo = document.getElementById('shuryLogo');
+    // Load preference
+    if (localStorage.getItem('darkMode') === 'true') {
+      body.classList.add('dark-mode');
+      if (shuryLogo) shuryLogo.classList.add('logo-glow');
+    }
+    darkToggleBtn.addEventListener('click', () => {
+      body.classList.toggle('dark-mode');
+      const isDark = body.classList.contains('dark-mode');
+      localStorage.setItem('darkMode', isDark);
+      if (shuryLogo) {
+        if (isDark) shuryLogo.classList.add('logo-glow');
+        else shuryLogo.classList.remove('logo-glow');
+      }
+    });
+  </script>
+  <div class="modern-spinner" id="modernSpinner">
+    <div class="modern-spinner-inner"></div>
+  </div>
+  <script>
+    // Show/hide loading spinner
+    function showSpinner() {
+      document.getElementById('modernSpinner').style.display = 'flex';
+    }
+    function hideSpinner() {
+      document.getElementById('modernSpinner').style.display = 'none';
+    }
+    // Example: showSpinner(); hideSpinner();
+  </script>
+  <div class="modern-snackbar" id="modernSnackbar"></div>
+  <script>
+    // Show a snackbar/toast notification
+    function showSnackbar(msg, duration = 3000) {
+      const snackbar = document.getElementById('modernSnackbar');
+      snackbar.textContent = msg;
+      snackbar.classList.add('show');
+      setTimeout(() => {
+        snackbar.classList.remove('show');
+      }, duration);
+    }
+    // Example: showSnackbar('File sent!');
+  </script>
+  <script>
+    // Update circular progress indicator
+    function setCircularProgress(percent) {
+      const circle = document.getElementById('circularProgressBar');
+      const text = document.getElementById('circularProgressText');
+      const r = 26;
+      const circumference = 2 * Math.PI * r;
+      const progress = Math.max(0, Math.min(100, percent));
+      const dash = (progress / 100) * circumference;
+      circle.setAttribute('stroke-dasharray', `${dash} ${circumference - dash}`);
+      text.textContent = `${Math.round(progress)}%`;
+    }
+    // Example: setCircularProgress(50);
+  </script>
+  <script>
+    // Device avatar/emoji picker logic
+    const avatarPickerBtn = document.getElementById('avatarPickerBtn');
+    const emojiPicker = document.getElementById('emojiPicker');
+    const userAvatar = document.getElementById('userAvatar');
+    // Load saved avatar
+    const savedAvatar = localStorage.getItem('userAvatar');
+    if (savedAvatar) userAvatar.textContent = savedAvatar;
+    avatarPickerBtn.addEventListener('click', (e) => {
+      emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
+      e.stopPropagation();
+    });
+    emojiPicker.querySelectorAll('span.device-avatar').forEach(span => {
+      span.addEventListener('click', () => {
+        userAvatar.textContent = span.textContent;
+        localStorage.setItem('userAvatar', span.textContent);
+        emojiPicker.style.display = 'none';
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!emojiPicker.contains(e.target) && e.target !== avatarPickerBtn) {
+        emojiPicker.style.display = 'none';
+      }
+    });
+  </script>
+  <button class="fab-btn" id="fabBtn" title="Quick actions" aria-label="Quick actions">＋</button>
+  <div class="fab-menu" id="fabMenu">
+    <button id="fabSendFile"><span style="font-size:1.2em;">📤</span> Send File</button>
+    <button id="fabSendFeedback"><span style="font-size:1.2em;">💬</span> Send Feedback</button>
+  </div>
+  <script>
+    // FAB logic
+    const fabBtn = document.getElementById('fabBtn');
+    const fabMenu = document.getElementById('fabMenu');
+    fabBtn.addEventListener('click', (e) => {
+      fabMenu.classList.toggle('show');
+      e.stopPropagation();
+    });
+    document.addEventListener('click', (e) => {
+      if (!fabMenu.contains(e.target) && e.target !== fabBtn) {
+        fabMenu.classList.remove('show');
+      }
+    });
+    // FAB actions
+    document.getElementById('fabSendFile').addEventListener('click', () => {
+      document.getElementById('fileInput').click();
+      fabMenu.classList.remove('show');
+    });
+    document.getElementById('fabSendFeedback').addEventListener('click', () => {
+      document.getElementById('feedbackForm').scrollIntoView({behavior:'smooth'});
+      fabMenu.classList.remove('show');
+    });
   </script>
 </body>
 </html>

@@ -131,7 +131,7 @@ class UIManager {
 
   /**
    * Update file selection display
-   * @param {FileList} files - Selected files
+   * @param {FileList|Array} files - Selected files
    */
   updateFileSelection(files) {
     if (!files || files.length === 0) {
@@ -147,13 +147,42 @@ class UIManager {
       if (clearBtn) clearBtn.style.display = 'none';
       return;
     }
+    // Helper to get file icon or preview
+    function getFilePreview(file, idx) {
+      const type = file.type;
+      if (type.startsWith('image/')) {
+        // Image preview
+        return `<img src="${URL.createObjectURL(file)}" class="file-preview" alt="Image preview" onload="URL.revokeObjectURL(this.src)" />`;
+      } else if (type.startsWith('video/')) {
+        // Video icon
+        return `<span class="file-type-icon">🎬</span>`;
+      } else if (type.startsWith('audio/')) {
+        return `<span class="file-type-icon">🎵</span>`;
+      } else if (type === 'application/pdf') {
+        return `<span class="file-type-icon">📄</span>`;
+      } else if (type.startsWith('text/')) {
+        return `<span class="file-type-icon">📄</span>`;
+      } else if (file.name.endsWith('.zip') || file.name.endsWith('.rar')) {
+        return `<span class="file-type-icon">🗜️</span>`;
+      } else {
+        return `<span class="file-type-icon">📦</span>`;
+      }
+    }
+    // Render each file with preview/icon, name, size, and remove button
     if (this.elements.selectedFile) {
-      this.elements.selectedFile.innerHTML = Array.from(files).map(file => `
-        <div><strong>${file.name}</strong> <span class="file-size">${Utils.formatFileSize(file.size)}</span></div>
+      this.elements.selectedFile.innerHTML = Array.from(files).map((file, idx) => `
+        <div class="selected-file-item" data-file-idx="${idx}">
+          ${getFilePreview(file, idx)}
+          <div class="selected-file-info">
+            <div class="selected-file-name">${file.name}</div>
+            <div class="selected-file-size">${Utils.formatFileSize(file.size)}</div>
+          </div>
+          <button class="selected-file-remove" title="Remove file" data-remove-idx="${idx}">✖️</button>
+        </div>
       `).join('') +
-      `<button id="clearSentFilesBtn" class="btn-clear-files" style="margin-top:10px;"><span class="icon">🗑️</span>Clear Sent Files</button>`;
-      this.elements.selectedFile.style.display = 'block';
-      // Add event listener for clear button
+      `<button id="clearSentFilesBtn" class="btn-clear-files" style="margin-top:10px;"><span class="icon">🗑️</span>Clear All</button>`;
+      this.elements.selectedFile.style.display = 'flex';
+      // Add event listener for clear all button
       setTimeout(() => {
         const clearBtn = document.getElementById('clearSentFilesBtn');
         if (clearBtn) {
@@ -163,6 +192,20 @@ class UIManager {
             }
           };
         }
+        // Add event listeners for per-file remove
+        const removeBtns = this.elements.selectedFile.querySelectorAll('.selected-file-remove');
+        removeBtns.forEach(btn => {
+          btn.onclick = (e) => {
+            const idx = parseInt(btn.getAttribute('data-remove-idx'));
+            if (!isNaN(idx) && window.app && Array.isArray(window.app.currentFiles)) {
+              // Remove file at idx
+              const newFiles = window.app.currentFiles.slice(0, idx).concat(window.app.currentFiles.slice(idx + 1));
+              window.app.currentFiles = newFiles;
+              this.updateFileSelection(newFiles);
+              window.app.updateUI();
+            }
+          };
+        });
       }, 0);
     }
     if (this.elements.fileInputLabel) {
@@ -426,3 +469,51 @@ class UIManager {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = UIManager;
 } 
+
+// Theme and Accent Color Logic
+function setupThemeControls() {
+  const themeToggle = document.getElementById('themeToggle');
+  const accentColorPicker = document.getElementById('accentColorPicker');
+  const body = document.body;
+
+  // Load saved theme from localStorage
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) {
+    body.classList.remove('light-theme', 'dark-theme');
+    body.classList.add(savedTheme);
+    themeToggle.textContent = savedTheme === 'dark-theme' ? '🌙' : '☀️';
+  } else {
+    // Default to dark theme
+    body.classList.add('dark-theme');
+    themeToggle.textContent = '🌙';
+  }
+
+  // Load saved accent color
+  const savedAccent = localStorage.getItem('accent');
+  if (savedAccent) {
+    document.documentElement.style.setProperty('--accent', savedAccent);
+    accentColorPicker.value = savedAccent;
+  }
+
+  themeToggle.addEventListener('click', () => {
+    if (body.classList.contains('dark-theme')) {
+      body.classList.remove('dark-theme');
+      body.classList.add('light-theme');
+      themeToggle.textContent = '☀️';
+      localStorage.setItem('theme', 'light-theme');
+    } else {
+      body.classList.remove('light-theme');
+      body.classList.add('dark-theme');
+      themeToggle.textContent = '🌙';
+      localStorage.setItem('theme', 'dark-theme');
+    }
+  });
+
+  accentColorPicker.addEventListener('input', (e) => {
+    const color = e.target.value;
+    document.documentElement.style.setProperty('--accent', color);
+    localStorage.setItem('accent', color);
+  });
+}
+
+window.addEventListener('DOMContentLoaded', setupThemeControls); 
